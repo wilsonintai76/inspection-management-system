@@ -1,0 +1,272 @@
+{
+  "entities": {
+    "Inspection": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Inspection",
+      "type": "object",
+      "description": "Represents an inspection schedule entry.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Inspection entity."
+        },
+        "locationId": {
+          "type": "string",
+          "description": "Reference to Location. (Relationship: Location 1:N Inspection)"
+        },
+        "locationName": {
+          "type": "string",
+          "description": "The name of the location where the inspection is scheduled."
+        },
+        "supervisor": {
+          "type": "string",
+          "description": "The name of the supervisor responsible for the location."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date and time the inspection is scheduled for.",
+          "format": "date-time"
+        },
+        "auditor1": {
+          "type": "string",
+          "description": "The name of the primary auditor assigned to the inspection."
+        },
+        "auditor2": {
+          "type": "string",
+          "description": "The name of the secondary auditor assigned to the inspection."
+        }
+      },
+      "required": [
+        "id",
+        "locationId",
+        "locationName",
+        "supervisor",
+        "date",
+        "auditor1",
+        "auditor2"
+      ]
+    },
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Department",
+      "type": "object",
+      "description": "Represents a department within the organization.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Department entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the department."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Location": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Location",
+      "type": "object",
+      "description": "Represents a physical location where inspections are conducted.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Location entity."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Reference to Department. (Relationship: Department 1:N Location)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the location."
+        },
+        "supervisor": {
+          "type": "string",
+          "description": "The name of the supervisor responsible for the location."
+        }
+      },
+      "required": [
+        "id",
+        "departmentId",
+        "name",
+        "supervisor"
+      ]
+    },
+    "AppUser": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AppUser",
+      "type": "object",
+      "description": "Represents a user of the application and their role.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AppUser entity; corresponds to the user's Firebase UID."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the application (e.g., Auditor, Supervisor, Admin)."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role"
+      ]
+    },
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user's profile information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity; corresponds to the user's Firebase UID."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "google.com"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/artifacts/{appId}/public/data/inspections/{inspectionId}",
+        "definition": {
+          "entityName": "Inspection",
+          "schema": {
+            "$ref": "#/backend/entities/Inspection"
+          },
+          "description": "Stores inspection schedule data. Includes denormalized 'locationName', 'locationId', 'supervisor', 'auditor1', and 'auditor2' for authorization independence.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance."
+            },
+            {
+              "name": "inspectionId",
+              "description": "The unique identifier for the inspection document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/public/data/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": {
+            "$ref": "#/backend/entities/Department"
+          },
+          "description": "Stores department data.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance."
+            },
+            {
+              "name": "departmentId",
+              "description": "The unique identifier for the department document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/public/data/locations/{locationId}",
+        "definition": {
+          "entityName": "Location",
+          "schema": {
+            "$ref": "#/backend/entities/Location"
+          },
+          "description": "Stores location data.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance."
+            },
+            {
+              "name": "locationId",
+              "description": "The unique identifier for the location document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/public/data/app_users/{userId}",
+        "definition": {
+          "entityName": "AppUser",
+          "schema": {
+            "$ref": "#/backend/entities/AppUser"
+          },
+          "description": "Stores application user data, including roles. The document ID corresponds to the Firebase UID. Used for role-based access control.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance."
+            },
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user document; corresponds to the user's Firebase UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{appId}/users/{userId}/profile/user_data",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile data.  Accessible only by the user.",
+          "params": [
+            {
+              "name": "appId",
+              "description": "The unique identifier for the application instance."
+            },
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user; corresponds to the user's Firebase UID."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to provide a balance between security, scalability, and ease of management, following the principles of Authorization Independence, Structural Segregation, Access Modeling, and Data Clarity. The root of the data is organized under an `artifacts` collection, which uses the `appId` as the document ID. This allows for easy separation of data between different applications or instances. Within each artifact, data is segregated into `public` and `users` subcollections.\n\n**Authorization Independence:**\n\n*   Authorization independence is achieved through denormalization. For example, the `inspections` collection denormalizes the `locationName` and `locationId`, `supervisor` so rules can enforce access based on these attributes without needing to perform `get()` operations.  Similarly, the `app_users` collection holds user role information directly, avoiding the need to fetch roles from a separate source.\n\n**Structural Segregation:**\n\n*   The structure separates user-specific data (profiles) from shared application data (departments, locations, inspections). The `/artifacts/{appId}/users/{userId}/profile/user_data` path is exclusively for user profile information, ensuring only the user can modify their profile.\n*   All documents within the public collections share the same security requirements, simplifying rules and ensuring consistency.\n\n**Access Modeling:**\n\n*   **Private Data:** User profiles are stored under `/artifacts/{appId}/users/{userId}/profile/user_data`, providing path-based ownership. Only the authenticated user (`request.auth.uid`) can access their own profile.\n*   **Collaborative Data**: The application uses a limited form of collaborative data management via denormalization of `supervisor`, and `auditor1` and `auditor2` on the `inspections` documents.  More complex access control (e.g. via a `members` map) is not required for the current feature set.\n*   **Global Roles (DBAC):** User roles are stored directly in the `/artifacts/{appId}/public/data/app_users/{userId}` document, making role-based access control straightforward.\n\n**QAPs Support:**\n\n*   Secure List Operations: By segregating data based on access requirements (public vs. private) and denormalizing authorization data, rules can efficiently filter lists of documents without the need for complex queries or `get()` calls, ensuring secure list operations.\n\n**Invariants:**\n\n*   The structure facilitates the integrity of ownership by using path-based ownership for user profiles. Timestamps (e.g., inspection dates) can be validated in rules to ensure data consistency.\n\nIn summary, this data structure promotes a secure and maintainable Firestore setup, reducing the complexity of security rules and enabling atomic operations."
+  }
+}
