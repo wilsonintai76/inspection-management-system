@@ -27,15 +27,15 @@ try {
             break;
         case 'POST':
             $data = get_json_body();
-            $stmt = $pdo->prepare('INSERT INTO departments (name, acronym) VALUES (?, ?)');
-            $stmt->execute([$data['name'] ?? '', $data['acronym'] ?? null]);
+            $stmt = $pdo->prepare('INSERT INTO departments (name, acronym, total_assets) VALUES (?, ?, ?)');
+            $stmt->execute([$data['name'] ?? '', $data['acronym'] ?? null, $data['total_assets'] ?? 0]);
             echo json_encode(['id' => $pdo->lastInsertId()]);
             break;
         case 'PUT':
             if (!isset($_GET['id'])) { http_response_code(400); echo json_encode(['error' => 'Missing id']); break; }
             $data = get_json_body();
-            $stmt = $pdo->prepare('UPDATE departments SET name = ?, acronym = ? WHERE id = ?');
-            $stmt->execute([$data['name'] ?? '', $data['acronym'] ?? null, $_GET['id']]);
+            $stmt = $pdo->prepare('UPDATE departments SET name = ?, acronym = ?, total_assets = ? WHERE id = ?');
+            $stmt->execute([$data['name'] ?? '', $data['acronym'] ?? null, $data['total_assets'] ?? 0, $_GET['id']]);
             echo json_encode(['updated' => true]);
             break;
         case 'DELETE':
