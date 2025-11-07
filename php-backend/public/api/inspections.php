@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../src/cors.php';
-require_once __DIR__ . '/../../src/db.php';
+require_once __DIR__ . '/../src/cors.php';
+require_once __DIR__ . '/../src/db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -21,8 +21,14 @@ try {
                 if (!$row) { http_response_code(404); echo json_encode(['error' => 'Not found']); break; }
                 echo json_encode($row);
             } else {
-                $stmt = $pdo->query('SELECT * FROM inspections ORDER BY inspection_date DESC');
-                echo json_encode($stmt->fetchAll());
+                if (isset($_GET['department_id']) && $_GET['department_id'] !== '') {
+                    $stmt = $pdo->prepare('SELECT i.* FROM inspections i INNER JOIN locations l ON i.location_id = l.id WHERE l.department_id = ? ORDER BY i.inspection_date DESC');
+                    $stmt->execute([$_GET['department_id']]);
+                    echo json_encode($stmt->fetchAll());
+                } else {
+                    $stmt = $pdo->query('SELECT * FROM inspections ORDER BY inspection_date DESC');
+                    echo json_encode($stmt->fetchAll());
+                }
             }
             break;
         case 'POST':

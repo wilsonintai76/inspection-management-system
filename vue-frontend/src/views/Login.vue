@@ -10,18 +10,20 @@
 
         <h1 class="signin-title">Sign in</h1>
         <p class="signup-prompt">
-          Don't have an account? <a href="#" class="link-create">Create now</a>
+          Don't have an account? <router-link to="/register" class="link-create">Create now</router-link>
         </p>
 
         <form @submit.prevent="handleLogin" class="login-form">
           <div class="form-group">
-            <label for="email">Email</label>
+            <label for="staff-id">Staff ID</label>
             <input
-              id="email"
-              v-model="email"
-              type="email"
-              placeholder="admin@example.com"
+              id="staff-id"
+              v-model="staffId"
+              type="text"
+              placeholder="Enter your 4-digit staff ID"
               required
+              maxlength="4"
+              pattern="\d{4}"
               autocomplete="username"
             />
           </div>
@@ -43,7 +45,7 @@
               <input type="checkbox" v-model="rememberMe" />
               <span>Remember me</span>
             </label>
-            <a href="#" class="link-forgot">Forgot Password?</a>
+            <router-link to="/forgot-password" class="link-forgot">Forgot Password?</router-link>
           </div>
 
           <button type="submit" class="btn-signin" :disabled="isLoading">
@@ -72,9 +74,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import api from '../api';
 
 const router = useRouter();
-const email = ref('');
+const staffId = ref('');
 const password = ref('');
 const rememberMe = ref(false);
 const isLoading = ref(false);
@@ -84,39 +87,56 @@ async function handleLogin() {
   error.value = '';
   isLoading.value = true;
 
-  // TODO: Replace with real authentication (PHP session, JWT, etc.)
-  // For now, mock login - in production, validate against API
   try {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    if (email.value && password.value) {
-      // Mock success: store login state
-      sessionStorage.setItem('isLoggedIn', 'true');
-      sessionStorage.setItem('userEmail', email.value);
+    // Call login API
+    const response = await api.post('/login.php', {
+      staff_id: staffId.value,
+      password: password.value
+    });
+
+    if (response.data.success) {
+      const { user, must_change_password } = response.data;
       
-      // Try to fetch user name from API
-      try {
-        const response = await fetch(`http://inspectable.local/api/users.php?id=${email.value}`);
-        if (response.ok) {
-          const userData = await response.json();
-          sessionStorage.setItem('userName', userData.name || 'User');
-        } else {
-          sessionStorage.setItem('userName', 'User');
-        }
-      } catch {
-        sessionStorage.setItem('userName', 'User');
-      }
+      // Store login state
+      sessionStorage.setItem('isLoggedIn', 'true');
+      sessionStorage.setItem('userId', user.id);
+      sessionStorage.setItem('staffId', user.staff_id);
+      sessionStorage.setItem('userEmail', user.email);
+      sessionStorage.setItem('userName', user.name);
+      sessionStorage.setItem('userRoles', JSON.stringify(user.roles));
+      sessionStorage.setItem('userDepartmentId', user.department_id || '');
       
       if (rememberMe.value) {
-        localStorage.setItem('rememberEmail', email.value);
+        localStorage.setItem('rememberStaffId', staffId.value);
       }
-      router.push('/dashboard');
-    } else {
-      error.value = 'Please enter valid credentials';
+
+      // Check if password change is required
+      if (must_change_password) {
+        sessionStorage.setItem('mustChangePassword', 'true');
+        router.push('/profile?change-password=true');
+      } else {
+        router.push('/dashboard');
+      }
     }
-  } catch (err) {
-    error.value = 'Login failed. Please try again.';
+  } catch (err: any) {
+    if (err.response?.data?.error) {
+      error.value = err.response.data.error;
+      
+      // Check if email verification is required
+      if (err.response?.data?.requires_verification) {
+        const email = err.response.data.email;
+        if (confirm('Your email is not verified. Would you like to resend the verification email?')) {
+          try {
+            await api.post('/resend-verification.php', { email });
+            alert('Verification email sent! Please check your inbox.');
+          } catch (resendErr) {
+            console.error('Failed to resend verification:', resendErr);
+          }
+        }
+      }
+    } else {
+      error.value = 'Login failed. Please check your credentials and try again.';
+    }
   } finally {
     isLoading.value = false;
   }

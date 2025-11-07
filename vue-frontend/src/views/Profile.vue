@@ -6,6 +6,9 @@
         <span class="breadcrumb-icon">👤</span>
         <h1 class="page-title">Profile</h1>
       </div>
+      <div class="header-right">
+        <button class="btn-logout" @click="logout">Logout</button>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -45,7 +48,7 @@
                 />
               </div>
               <div class="form-group">
-                <label for="email">Email Address</label>
+                <label for="email">Institution Email</label>
                 <input 
                   id="email"
                   v-model="profileData.email" 
@@ -59,6 +62,16 @@
 
             <div class="form-row">
               <div class="form-group">
+                <label for="personal-email">Personal Email</label>
+                <input 
+                  id="personal-email"
+                  v-model="profileData.personal_email" 
+                  type="email" 
+                  class="form-input"
+                  placeholder="your.email@gmail.com"
+                />
+              </div>
+              <div class="form-group">
                 <label for="phone">Mobile Phone</label>
                 <input 
                   id="phone"
@@ -68,6 +81,10 @@
                   placeholder="e.g., 012-3456789"
                 />
               </div>
+            </div>
+
+            <div class="form-row">
+
               <div class="form-group">
                 <label for="department">Department</label>
                 <select id="department" v-model="profileData.department_id" class="form-select" disabled>
@@ -148,6 +165,10 @@
         <div class="card-body">
           <div class="info-grid">
             <div class="info-item">
+              <label>Staff ID</label>
+              <p><strong>{{ profileData.staff_id || '—' }}</strong></p>
+            </div>
+            <div class="info-item">
               <label>User ID</label>
               <p>{{ profileData.id }}</p>
             </div>
@@ -172,6 +193,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import api from '../api';
 
 interface Department {
@@ -185,8 +207,10 @@ interface UserRole {
 
 interface ProfileData {
   id: string;
+  staff_id?: string;
   name: string;
   email: string;
+  personal_email?: string;
   phone?: string;
   department_id?: number;
   status?: string;
@@ -220,6 +244,21 @@ const departments = ref<Department[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const changingPassword = ref(false);
+const router = useRouter();
+
+function logout() {
+  try {
+    sessionStorage.removeItem('isLoggedIn');
+    sessionStorage.removeItem('userId');
+    sessionStorage.removeItem('staffId');
+    sessionStorage.removeItem('userEmail');
+    sessionStorage.removeItem('userName');
+    sessionStorage.removeItem('userRoles');
+    sessionStorage.removeItem('mustChangePassword');
+    localStorage.removeItem('rememberStaffId');
+  } catch {}
+  router.push('/login');
+}
 
 function getInitials(name: string): string {
   if (!name) return '?';
@@ -249,13 +288,13 @@ function formatDate(dateStr?: string): string {
 async function fetchProfile() {
   loading.value = true;
   try {
-    const userEmail = sessionStorage.getItem('userEmail');
-    if (!userEmail) {
+    const userId = sessionStorage.getItem('userId');
+    if (!userId) {
       alert('Not logged in');
       return;
     }
 
-    const response = await api.get(`/users.php?id=${userEmail}`);
+    const response = await api.get(`/users.php?id=${userId}`);
     profileData.value = response.data;
   } catch (err) {
     console.error('Error fetching profile:', err);
@@ -280,6 +319,7 @@ async function updateProfile() {
     await api.put(`/users.php?id=${profileData.value.id}`, {
       name: profileData.value.name,
       email: profileData.value.email,
+      personal_email: profileData.value.personal_email || null,
       phone: profileData.value.phone || null,
       department_id: profileData.value.department_id,
       status: profileData.value.status,
@@ -312,9 +352,13 @@ async function changePassword() {
 
   changingPassword.value = true;
   try {
-    // In a real application, this would call a password change endpoint
-    // For now, we'll simulate it
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Call API to change password
+    await api.put(`/users.php?id=${profileData.value.id}`, {
+      password: passwordData.value.newPassword
+    });
+    
+    // Clear must change password flag in session
+    sessionStorage.removeItem('mustChangePassword');
     
     alert('Password changed successfully!');
     
@@ -346,6 +390,9 @@ onMounted(async () => {
 
 .page-header {
   margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .header-left {
@@ -363,6 +410,21 @@ onMounted(async () => {
   font-weight: 600;
   color: #1f2937;
   margin: 0;
+}
+
+.btn-logout {
+  padding: 0.5rem 1rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #ef4444;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-logout:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
 }
 
 .loading-state {

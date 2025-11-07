@@ -72,7 +72,7 @@
                     :value="getInspectionDate(location.id)"
                     @change="updateInspectionDate(location.id, $event)"
                     class="date-input"
-                    :disabled="!isAuditor"
+                    :disabled="!canSetDate"
                   />
                 </div>
               </td>
@@ -84,7 +84,30 @@
                     class="auditor-item"
                   >
                     <span class="auditor-icon">👤</span>
-                    <span class="auditor-label">{{ auditor.name }}</span>
+                    
+                    <!-- Admin: Show dropdown to assign any auditor -->
+                    <select 
+                      v-if="isAdmin && auditor.isEmpty"
+                      @change="assignAuditor(location.id, index, $event)"
+                      class="auditor-select"
+                    >
+                      <option value="">Select Auditor...</option>
+                      <option 
+                        v-for="user in auditorUsers" 
+                        :key="user.id" 
+                        :value="user.id"
+                      >
+                        {{ user.name }}
+                      </option>
+                    </select>
+                    
+                    <!-- Show label for assigned auditor -->
+                    <span v-if="!auditor.isEmpty" class="auditor-label">{{ auditor.name }}</span>
+                    
+                    <!-- Auditor (non-admin): Show label for unassigned slot -->
+                    <span v-if="auditor.isEmpty && isAuditor && !isAdmin" class="auditor-label">{{ auditor.name }}</span>
+                    
+                    <!-- Add button - only for Auditors to add themselves -->
                     <button 
                       v-if="auditor.isEmpty && isAuditor" 
                       class="btn-add-auditor"
@@ -93,11 +116,13 @@
                     >
                       <span class="plus-icon">⊕</span>
                     </button>
+                    
+                    <!-- Remove button - Auditors can remove themselves, Admin can remove anyone -->
                     <button 
-                      v-if="!auditor.isEmpty && isAuditor && auditor.isCurrentUser" 
+                      v-if="!auditor.isEmpty && (auditor.isCurrentUser || isAdmin)" 
                       class="btn-remove-auditor"
                       @click="removeAuditor(location.id, index)"
-                      title="Remove yourself"
+                      :title="auditor.isCurrentUser ? 'Remove yourself' : 'Remove auditor'"
                     >
                       <span class="remove-icon">⊖</span>
                     </button>
@@ -151,14 +176,36 @@ const locations = ref<Location[]>([]);
 const inspections = ref<Inspection[]>([]);
 const inspectionMap = ref<InspectionMap>({});
 const users = ref<User[]>([]);
+const auditorUsers = ref<User[]>([]); // Users with Auditor role
 const currentUser = ref<User | null>(null);
 const loading = ref(false);
 const error = ref('');
 const filterDepartment = ref('');
 
 const isAuditor = computed(() => {
-  if (!currentUser.value || !currentUser.value.roles) return false;
-  return currentUser.value.roles.includes('Auditor');
+  if (!currentUser.value || !currentUser.value.roles) {
+    console.log('isAuditor: false - no user or roles', currentUser.value);
+    return false;
+  }
+  const result = currentUser.value.roles.includes('Auditor');
+  console.log('isAuditor:', result, 'roles:', currentUser.value.roles);
+  return result;
+});
+
+const isAdmin = computed(() => {
+  if (!currentUser.value || !currentUser.value.roles) {
+    console.log('isAdmin: false - no user or roles', currentUser.value);
+    return false;
+  }
+  const result = currentUser.value.roles.includes('Admin');
+  console.log('isAdmin:', result, 'roles:', currentUser.value.roles);
+  return result;
+});
+
+const canSetDate = computed(() => {
+  const result = isAuditor.value || isAdmin.value;
+  console.log('canSetDate:', result, 'isAuditor:', isAuditor.value, 'isAdmin:', isAdmin.value);
+  return result;
 });
 
 const filteredLocations = computed(() => {
@@ -222,8 +269,8 @@ function getLocationAuditors(locationId: number) {
 }
 
 async function updateInspectionDate(locationId: number, event: Event) {
-  if (!isAuditor.value) {
-    alert('Only auditors can set inspection dates.');
+  if (!canSetDate.value) {
+    alert('Only auditors and admins can set inspection dates.');
     return;
   }
   
@@ -268,6 +315,72 @@ async function updateInspectionDate(locationId: number, event: Event) {
   } catch (err) {
     console.error('Error updating inspection date:', err);
     alert('Failed to update inspection date.');
+  }
+}
+
+async function assignAuditor(locationId: number, slotIndex: number, event: Event) {
+  if (!isAdmin.value) {
+    alert('Only admins can assign auditors.');
+    return;
+  }
+  
+  const target = event.target as HTMLSelectElement;
+  const userId = target.value;
+  
+  if (!userId) return;
+  
+  try {
+    let inspection = inspectionMap.value[locationId];
+    const auditorField = slotIndex === 0 ? 'auditor1_id' : 'auditor2_id';
+    const otherField = slotIndex === 0 ? 'auditor2_id' : 'auditor1_id';
+    
+    // Check if user is already assigned
+    if (inspection?.[auditorField] === userId || inspection?.[otherField] === userId) {
+      alert('This auditor is already assigned to this inspection.');
+      target.value = ''; // Reset select
+      return;
+    }
+    
+    const inspectionDate = inspection?.inspection_date || new Date().toISOString().split('T')[0];
+    
+    if (inspection && inspection.id) {
+      // Update existing inspection
+      const updateData: any = {
+        location_id: locationId,
+        inspection_date: inspectionDate,
+        status: inspection.status
+      };
+      updateData[auditorField] = userId;
+      updateData[otherField] = inspection[otherField];
+      
+      await api.put(`/inspections.php?id=${inspection.id}`, updateData);
+      inspection[auditorField] = userId;
+    } else {
+      // Create new inspection with auditor
+      const createData: any = {
+        location_id: locationId,
+        inspection_date: inspectionDate,
+        status: 'Pending'
+      };
+      createData[auditorField] = userId;
+      createData[otherField] = null;
+      
+      const response = await api.post('/inspections.php', createData);
+      
+      const newInspection: Inspection = {
+        id: response.data.id,
+        ...createData
+      };
+      
+      inspections.value.push(newInspection);
+      inspectionMap.value[locationId] = newInspection;
+    }
+    
+    // Reset select
+    target.value = '';
+  } catch (err) {
+    console.error('Error assigning auditor:', err);
+    alert('Failed to assign auditor.');
   }
 }
 
@@ -335,19 +448,14 @@ async function assignSelfAsAuditor(locationId: number, slotIndex: number) {
 }
 
 async function removeAuditor(locationId: number, slotIndex: number) {
-  if (!isAuditor.value) {
-    alert('Only auditors can remove assignments.');
-    return;
-  }
-  
   const inspection = inspectionMap.value[locationId];
   if (!inspection || !inspection.id) return;
   
   const auditorField = slotIndex === 0 ? 'auditor1_id' : 'auditor2_id';
   const otherField = slotIndex === 0 ? 'auditor2_id' : 'auditor1_id';
   
-  // Only allow removing yourself
-  if (inspection[auditorField] !== currentUser.value?.id) {
+  // Auditors can only remove themselves, Admins can remove anyone
+  if (!isAdmin.value && inspection[auditorField] !== currentUser.value?.id) {
     alert('You can only remove your own assignment.');
     return;
   }
@@ -393,17 +501,47 @@ async function fetchInspections() {
 async function fetchUsers() {
   const response = await api.get('/users.php');
   users.value = response.data;
+  
+  // Filter users who have Auditor role
+  auditorUsers.value = users.value.filter(user => 
+    user.roles && user.roles.includes('Auditor')
+  );
 }
 
 async function fetchCurrentUser() {
   // Get current user from session
-  const userEmail = sessionStorage.getItem('userEmail');
-  if (userEmail) {
+  const userId = sessionStorage.getItem('userId');
+  const userRolesStr = sessionStorage.getItem('userRoles');
+  
+  console.log('Fetching current user - userId:', userId, 'userRoles:', userRolesStr);
+  
+  if (userId) {
     try {
-      const response = await api.get(`/users.php?id=${userEmail}`);
-      currentUser.value = response.data;
+      // Try to get from API first
+      const response = await api.get(`/users.php?id=${userId}`);
+      if (response.data) {
+        currentUser.value = response.data;
+        console.log('Fetched current user from API:', currentUser.value);
+      }
     } catch (err) {
-      console.error('Error fetching current user:', err);
+      console.error('Error fetching current user from API:', err);
+      
+      // Fallback: construct from session storage
+      if (userRolesStr) {
+        let roles: string[] = [];
+        try {
+          roles = JSON.parse(userRolesStr);
+        } catch {
+          // last resort: split commas
+          roles = userRolesStr.split(',').map(r => r.replace(/^[\[\]"]+|[\[\]"]+$/g, '').trim());
+        }
+        currentUser.value = {
+          id: userId,
+          name: sessionStorage.getItem('userName') || 'Unknown',
+          roles
+        };
+        console.log('Using fallback user from session:', currentUser.value);
+      }
     }
   }
 }
@@ -691,6 +829,27 @@ onMounted(async () => {
 
 .auditor-label:not(:has(+ .btn-add-auditor)) {
   color: #374151;
+}
+
+.auditor-select {
+  padding: 0.375rem 2rem 0.375rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: #374151;
+  background: white;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.auditor-select:focus {
+  outline: none;
+  border-color: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
 }
 
 .btn-add-auditor,

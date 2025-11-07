@@ -3,5 +3,10 @@
 		{
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"workbench.editor.defaultBinaryEditor": "default",
+		"workbench.editor.enablePreviewFromCodeNavigation": true,
+		"workbench.editor.enablePreviewFromQuickOpen": true
+	}
 }

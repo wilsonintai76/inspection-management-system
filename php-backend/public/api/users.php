@@ -1,6 +1,14 @@
 <?php
-require_once __DIR__ . '/../../src/cors.php';
-require_once __DIR__ . '/../../src/db.php';
+// Portable includes: support both deployed WAMP path and repo path
+$srcPath = __DIR__ . '/../src';
+$configPath = __DIR__ . '/../config.php';
+if (!is_dir($srcPath) || !file_exists($configPath)) {
+    $srcPath = __DIR__ . '/../../src';
+    $configPath = __DIR__ . '/../../config.php';
+}
+require_once $srcPath . '/cors.php';
+require_once $configPath;
+require_once $srcPath . '/db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -9,6 +17,15 @@ function get_json_body() {
     if (!$raw) return [];
     $json = json_decode($raw, true);
     return is_array($json) ? $json : [];
+}
+
+function generate_password($length = 10) {
+    $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#%&';
+    $result = '';
+    for ($i = 0; $i < $length; $i++) {
+        $result .= $chars[random_int(0, strlen($chars) - 1)];
+    }
+    return $result;
 }
 
 try {
@@ -41,23 +58,57 @@ try {
             break;
         case 'POST':
             $d = get_json_body();
-            $stmt = $pdo->prepare('INSERT INTO users (id, name, email, phone, department_id, photo_url, status) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            
+            // Validate staff_id (must be 4 digits)
+            if (!isset($d['staff_id']) || !preg_match('/^\d{4}$/', (string)$d['staff_id'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid staff ID. Must be 4 digits.']);
+                break;
+            }
+
+            // Generate unique user id from staff_id or use email as fallback
+            $userId = $d['staff_id'];
+
+            // Auto-generate password if not provided
+            $plainPassword = $d['password'] ?? generate_password(10);
+            $passwordHash = password_hash($plainPassword, PASSWORD_BCRYPT);
+            $mustChange = 1; // force password change on first login
+
+            // Admin-created users are auto-verified (email_verified = 1, status = Verified)
+            $emailVerified = 1;
+            $status = 'Verified';
+
+            $stmt = $pdo->prepare('INSERT INTO users (id, staff_id, name, email, personal_email, phone, department_id, photo_url, password_hash, must_change_password, email_verified, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
             $stmt->execute([
-                $d['id'], $d['name'] ?? '', $d['email'] ?? '', $d['phone'] ?? null,
-                $d['department_id'] ?? null, $d['photo_url'] ?? null, $d['status'] ?? 'Unverified'
+                $userId, $d['staff_id'], $d['name'] ?? '', $d['email'] ?? '', $d['personal_email'] ?? null, $d['phone'] ?? null,
+                $d['department_id'] ?? null, $d['photo_url'] ?? null, $passwordHash, $mustChange, $emailVerified, $status
             ]);
             if (!empty($d['roles']) && is_array($d['roles'])) {
                 $ur = $pdo->prepare('INSERT INTO user_roles (user_id, role) VALUES (?, ?)');
-                foreach ($d['roles'] as $role) { $ur->execute([$d['id'], $role]); }
+                foreach ($d['roles'] as $role) { $ur->execute([$userId, $role]); }
             }
-            echo json_encode(['id' => $d['id']]);
+            // Try to email the password (may fail on local dev)
+            $mailSent = false;
+            if (!empty($d['email'])) {
+                $subject = 'Your Inspectable Account Credentials';
+                $message = "Hello {$d['name']},\n\nYour account has been created.\n\nStaff ID: {$d['staff_id']}\nTemporary Password: {$plainPassword}\n\nPlease log in and change your password immediately.";
+                $headers = 'From: no-reply@localhost' . "\r\n";
+                $mailSent = @mail($d['email'], $subject, $message, $headers);
+            }
+
+            echo json_encode(['id' => $userId, 'staff_id' => $d['staff_id'], 'generated_password' => $plainPassword, 'email_sent' => $mailSent]);
             break;
         case 'PUT':
             if (!isset($_GET['id'])) { http_response_code(400); echo json_encode(['error' => 'Missing id']); break; }
             $d = get_json_body();
-            $stmt = $pdo->prepare('UPDATE users SET name = ?, email = ?, phone = ?, department_id = ?, photo_url = ?, status = ? WHERE id = ?');
+            // If password provided, update hash and clear must_change flag unless explicitly set
+            if (isset($d['password']) && $d['password'] !== '') {
+                $hash = password_hash($d['password'], PASSWORD_BCRYPT);
+                $pdo->prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?')->execute([$hash, $_GET['id']]);
+            }
+            $stmt = $pdo->prepare('UPDATE users SET name = ?, email = ?, personal_email = ?, phone = ?, department_id = ?, photo_url = ?, status = ? WHERE id = ?');
             $stmt->execute([
-                $d['name'] ?? '', $d['email'] ?? '', $d['phone'] ?? null,
+                $d['name'] ?? '', $d['email'] ?? '', $d['personal_email'] ?? null, $d['phone'] ?? null,
                 $d['department_id'] ?? null, $d['photo_url'] ?? null, $d['status'] ?? 'Unverified', $_GET['id']
             ]);
             if (array_key_exists('roles', $d) && is_array($d['roles'])) {

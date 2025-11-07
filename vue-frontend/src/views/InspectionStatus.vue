@@ -12,12 +12,15 @@
     <div class="status-card">
       <div class="card-header">
         <h2 class="card-title">Inspection Status</h2>
-        <select v-model="filterDepartment" class="department-filter">
+        <select v-if="!deptRestricted" v-model="filterDepartment" class="department-filter">
           <option value="">All Departments</option>
           <option v-for="dept in departments" :key="dept.id" :value="dept.id">
             {{ dept.name }}
           </option>
         </select>
+        <div v-else class="department-filter" style="pointer-events:none; opacity:.7;">
+          {{ currentDepartmentName }}
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -67,6 +70,7 @@
               </td>
               <td>
                 <button 
+                  v-if="canToggle"
                   @click="toggleStatus(inspection)" 
                   class="btn-toggle"
                 >
@@ -84,6 +88,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import api from '../api';
+import { useAuth } from '../composables/useAuth';
 
 interface Department {
   id: number;
@@ -111,6 +116,15 @@ const locations = ref<Location[]>([]);
 const loading = ref(false);
 const error = ref('');
 const filterDepartment = ref('');
+const auth = useAuth();
+const deptRestricted = computed(() => auth.isDeptRestricted.value);
+const userDeptId = computed(() => auth.userDepartmentId.value);
+const canToggle = computed(() => auth.can('canToggleInspectionStatus'));
+const currentDepartmentName = computed(() => {
+  const id = Number(userDeptId.value);
+  const dept = departments.value.find(d => d.id === id);
+  return dept?.name || 'Your Department';
+});
 
 const filteredInspections = computed(() => {
   if (!filterDepartment.value) {
@@ -136,7 +150,8 @@ async function fetchDepartments() {
 
 async function fetchLocations() {
   try {
-    const response = await api.get('/locations.php');
+    const q = deptRestricted.value && userDeptId.value ? `?department_id=${userDeptId.value}` : '';
+    const response = await api.get(`/locations.php${q}`);
     locations.value = response.data;
   } catch (err) {
     console.error('Error fetching locations:', err);
@@ -145,7 +160,8 @@ async function fetchLocations() {
 
 async function fetchInspections() {
   try {
-    const response = await api.get('/inspections.php');
+    const q = deptRestricted.value && userDeptId.value ? `?department_id=${userDeptId.value}` : '';
+    const response = await api.get(`/inspections.php${q}`);
     const data = response.data;
     
     // Enrich inspections with location and department names
@@ -202,6 +218,10 @@ async function toggleStatus(inspection: Inspection) {
 }
 
 onMounted(async () => {
+  // If department-restricted, force filter to user's department
+  if (deptRestricted.value && userDeptId.value) {
+    filterDepartment.value = String(userDeptId.value);
+  }
   await fetchData();
 });
 </script>

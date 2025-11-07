@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../src/cors.php';
-require_once __DIR__ . '/../../src/db.php';
+require_once __DIR__ . '/../src/cors.php';
+require_once __DIR__ . '/../src/db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -21,8 +21,14 @@ try {
                 if (!$row) { http_response_code(404); echo json_encode(['error' => 'Not found']); break; }
                 echo json_encode($row);
             } else {
-                $stmt = $pdo->query('SELECT * FROM locations ORDER BY name');
-                echo json_encode($stmt->fetchAll());
+                if (isset($_GET['department_id']) && $_GET['department_id'] !== '') {
+                    $stmt = $pdo->prepare('SELECT * FROM locations WHERE department_id = ? ORDER BY name');
+                    $stmt->execute([$_GET['department_id']]);
+                    echo json_encode($stmt->fetchAll());
+                } else {
+                    $stmt = $pdo->query('SELECT * FROM locations ORDER BY name');
+                    echo json_encode($stmt->fetchAll());
+                }
             }
             break;
         case 'POST':

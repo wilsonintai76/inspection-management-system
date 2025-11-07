@@ -7,6 +7,8 @@ echo json_encode([
         '/api/departments.php',
         '/api/locations.php',
         '/api/inspections.php',
-        '/api/users.php'
+        '/api/users.php',
+        '/api/auth_login.php',
+        '/api/change_password.php'
     ]
 ]);

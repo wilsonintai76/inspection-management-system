@@ -6,7 +6,7 @@
         <span class="breadcrumb-icon">📍</span>
         <h1 class="page-title">Locations</h1>
       </div>
-      <button class="btn-primary" @click="openAddDialog">
+      <button class="btn-primary" @click="openAddDialog" v-if="canManage">
         <span class="btn-icon">+</span>
         Add Location
       </button>
@@ -23,12 +23,15 @@
             placeholder="Search locations..." 
             class="search-input"
           />
-          <select v-model="filterDepartment" class="department-filter">
+          <select v-if="!deptRestricted" v-model="filterDepartment" class="department-filter">
             <option value="">All Departments</option>
             <option v-for="dept in departments" :key="dept.id" :value="dept.id">
               {{ dept.name }}
             </option>
           </select>
+          <div v-else class="department-filter" style="pointer-events:none; opacity:.7;">
+            {{ currentDepartmentName }}
+          </div>
         </div>
       </div>
 
@@ -88,6 +91,7 @@
               <td>
                 <div class="action-buttons">
                   <button 
+                    v-if="canManage"
                     @click="openEditDialog(location)" 
                     class="btn-edit"
                     title="Edit"
@@ -95,6 +99,7 @@
                     ✏️
                   </button>
                   <button 
+                    v-if="canManage"
                     @click="confirmDelete(location)" 
                     class="btn-delete"
                     title="Delete"
@@ -129,7 +134,7 @@
           </div>
           <div class="form-group">
             <label for="department">Department *</label>
-            <select id="department" v-model="formData.department_id" class="form-select">
+            <select id="department" v-model="formData.department_id" class="form-select" :disabled="deptRestricted">
               <option value="">Select department...</option>
               <option v-for="dept in departments" :key="dept.id" :value="dept.id">
                 {{ dept.name }}
@@ -189,6 +194,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import api from '../api';
+import { useAuth } from '../composables/useAuth';
 
 interface Department {
   id: number;
@@ -219,6 +225,17 @@ const loading = ref(false);
 const error = ref('');
 const searchQuery = ref('');
 const filterDepartment = ref('');
+
+// Auth and permissions
+const auth = useAuth();
+const deptRestricted = computed(() => auth.isDeptRestricted.value);
+const userDeptId = computed(() => auth.userDepartmentId.value);
+const canManage = computed(() => auth.can('canManageLocations'));
+const currentDepartmentName = computed(() => {
+  const id = Number(userDeptId.value);
+  const dept = departments.value.find(d => d.id === id);
+  return dept?.name || 'Your Department';
+});
 
 const showDialog = ref(false);
 const showDeleteDialog = ref(false);
@@ -266,7 +283,7 @@ function openAddDialog() {
   editingLocation.value = null;
   formData.value = {
     name: '',
-    department_id: '',
+    department_id: deptRestricted.value ? Number(userDeptId.value) : '',
     supervisor: '',
     contact_number: ''
   };
@@ -303,7 +320,8 @@ async function fetchLocations() {
   loading.value = true;
   error.value = '';
   try {
-    const response = await api.get('/locations.php');
+    const q = deptRestricted.value && userDeptId.value ? `?department_id=${userDeptId.value}` : '';
+    const response = await api.get(`/locations.php${q}`);
     locations.value = response.data;
   } catch (err) {
     error.value = 'Failed to load locations. Please try again.';
@@ -328,7 +346,7 @@ async function saveLocation() {
   try {
     const data = {
       name: formData.value.name.trim(),
-      department_id: Number(formData.value.department_id),
+      department_id: deptRestricted.value ? Number(userDeptId.value) : Number(formData.value.department_id),
       supervisor: formData.value.supervisor.trim() || null,
       contact_number: formData.value.contact_number.trim() || null
     };
@@ -363,6 +381,9 @@ async function deleteLocation() {
 }
 
 onMounted(async () => {
+  if (deptRestricted.value && userDeptId.value) {
+    filterDepartment.value = String(userDeptId.value);
+  }
   await Promise.all([fetchLocations(), fetchDepartments()]);
 });
 </script>

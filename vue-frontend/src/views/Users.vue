@@ -105,7 +105,21 @@
         </div>
         <div class="dialog-body">
           <div class="form-group">
-            <label for="user-name">Full Name</label>
+            <label for="user-staff-id">Staff ID *</label>
+            <input 
+              id="user-staff-id"
+              v-model="formData.staff_id" 
+              type="text" 
+              placeholder="4-digit staff ID" 
+              class="form-input"
+              maxlength="4"
+              pattern="\d{4}"
+              :disabled="!!editingUser"
+            />
+            <small class="field-hint">Must be 4 digits. Cannot be changed after creation.</small>
+          </div>
+          <div class="form-group">
+            <label for="user-name">Full Name *</label>
             <input 
               id="user-name"
               v-model="formData.name" 
@@ -115,14 +129,23 @@
             />
           </div>
           <div class="form-group">
-            <label for="user-email">Email Address</label>
+            <label for="user-email">Institution Email Address *</label>
             <input 
               id="user-email"
               v-model="formData.email" 
               type="email" 
-              placeholder="user@example.com" 
+              placeholder="user@institution.edu" 
               class="form-input"
-              :disabled="!!editingUser"
+            />
+          </div>
+          <div class="form-group">
+            <label for="user-personal-email">Personal Email Address</label>
+            <input 
+              id="user-personal-email"
+              v-model="formData.personal_email" 
+              type="email" 
+              placeholder="user@gmail.com" 
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -136,7 +159,7 @@
             />
           </div>
           <div class="form-group">
-            <label>Roles</label>
+            <label>Roles *</label>
             <div class="checkbox-group">
               <label class="checkbox-label">
                 <input type="checkbox" value="Admin" v-model="formData.roles" />
@@ -157,13 +180,16 @@
             </div>
           </div>
           <div class="form-group">
-            <label for="user-department">Department</label>
+            <label for="user-department">Department *</label>
             <select id="user-department" v-model="formData.department_id" class="form-select">
               <option value="">Select a department</option>
               <option v-for="dept in departments" :key="dept.id" :value="dept.id">
                 {{ dept.name }}
               </option>
             </select>
+          </div>
+          <div v-if="!editingUser" class="info-box">
+            <p><strong>Note:</strong> A temporary password will be automatically generated and sent to the user's email. The user will be required to change it on first login.</p>
           </div>
         </div>
         <div class="dialog-footer">
@@ -210,16 +236,20 @@ interface UserRole {
 
 interface User {
   id: string;
+  staff_id: string;
   name: string;
   email: string;
+  personal_email?: string;
   phone?: string;
   department_id?: number;
   roles?: UserRole[] | string[];
 }
 
 interface FormData {
+  staff_id: string;
   name: string;
   email: string;
+  personal_email: string;
   phone: string;
   roles: string[];
   department_id: number | string;
@@ -236,8 +266,10 @@ const editingUser = ref<User | null>(null);
 const userToDelete = ref<User | null>(null);
 
 const formData = ref<FormData>({
+  staff_id: '',
   name: '',
   email: '',
+  personal_email: '',
   phone: '',
   roles: [],
   department_id: ''
@@ -245,6 +277,8 @@ const formData = ref<FormData>({
 
 const isFormValid = computed(() => {
   return (
+    formData.value.staff_id.trim() !== '' &&
+    /^\d{4}$/.test(formData.value.staff_id) &&
     formData.value.name.trim() !== '' &&
     formData.value.email.trim() !== '' &&
     formData.value.roles.length > 0 &&
@@ -269,8 +303,10 @@ function formatRoles(roles?: UserRole[] | string[]): string {
 function openAddDialog() {
   editingUser.value = null;
   formData.value = {
+    staff_id: '',
     name: '',
     email: '',
+    personal_email: '',
     phone: '',
     roles: [],
     department_id: ''
@@ -287,8 +323,10 @@ function openEditDialog(user: User) {
     : [];
   
   formData.value = {
+    staff_id: user.staff_id || '',
     name: user.name,
     email: user.email,
+    personal_email: user.personal_email || '',
     phone: user.phone || '',
     roles: userRoles,
     department_id: user.department_id || ''
@@ -348,9 +386,10 @@ async function saveUser() {
 
   try {
     const data = {
-      id: editingUser.value?.id || formData.value.email,
+      staff_id: formData.value.staff_id.trim(),
       name: formData.value.name.trim(),
       email: formData.value.email.trim(),
+      personal_email: formData.value.personal_email.trim() || null,
       phone: formData.value.phone.trim() || null,
       department_id: Number(formData.value.department_id),
       roles: formData.value.roles
@@ -359,16 +398,23 @@ async function saveUser() {
     if (editingUser.value) {
       // Update existing user
       await api.put(`/users.php?id=${editingUser.value.id}`, data);
+      alert('User updated successfully!');
     } else {
       // Create new user
-      await api.post('/users.php', data);
+      const response = await api.post('/users.php', data);
+      const { generated_password, staff_id, email_sent } = response.data;
+      
+      // Show generated password to admin
+      const emailStatus = email_sent ? 'Password has been sent to the user\'s email.' : 'Failed to send email.';
+      alert(`User created successfully!\n\nStaff ID: ${staff_id}\nTemporary Password: ${generated_password}\n\n${emailStatus}\n\nPlease save this password and share it with the user securely.`);
     }
 
     closeDialog();
     await fetchUsers();
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error saving user:', err);
-    alert('Failed to save user. Please try again.');
+    const errorMsg = err.response?.data?.error || 'Failed to save user. Please try again.';
+    alert(errorMsg);
   }
 }
 
@@ -820,6 +866,27 @@ onMounted(async () => {
   color: #ef4444;
   font-size: 0.875rem;
   margin-top: 0.5rem;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.info-box {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  margin-top: 1rem;
+}
+
+.info-box p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #1e40af;
 }
 
 @media (max-width: 768px) {

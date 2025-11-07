@@ -7,28 +7,21 @@
         <h1 class="logo-text">INSPECT</h1>
       </div>
       <nav class="sidebar-nav">
-        <!-- Overview - Everyone can see -->
-        <RouterLink v-if="auth.can('canViewDashboard')" to="/dashboard" class="nav-item">
+        <RouterLink to="/dashboard" class="nav-item">
           <span class="nav-icon">⊞</span>
           <span class="nav-label">Overview</span>
         </RouterLink>
-        
-        <!-- Schedule - Auditor and Admin only -->
-        <RouterLink v-if="auth.can('canViewSchedule')" to="/schedule" class="nav-item">
+        <RouterLink to="/schedule" class="nav-item">
           <span class="nav-icon">🏠</span>
           <span class="nav-label">Schedule</span>
         </RouterLink>
-        
-        <!-- Locations - Asset Officer and Admin only -->
-        <RouterLink v-if="auth.can('canViewLocations')" to="/locations" class="nav-item">
+        <RouterLink to="/locations" class="nav-item">
           <span class="nav-icon">📍</span>
           <span class="nav-label">Locations</span>
         </RouterLink>
-        
-        <!-- Reports Group - Asset Officer and Admin only -->
-        <div v-if="auth.can('canViewInspectionStatus')" class="nav-group">
+        <div class="nav-group">
           <div class="nav-item nav-group-header" @click="toggleReports">
-            <span class="nav-icon">📊</span>
+            <span class="nav-icon">�</span>
             <span class="nav-label">Reports</span>
             <span class="nav-arrow" :class="{ expanded: reportsExpanded }">›</span>
           </div>
@@ -39,30 +32,22 @@
             </RouterLink>
           </div>
         </div>
-        
-        <!-- Settings Group - Admin only -->
-        <div v-if="auth.can('canViewDepartments') || auth.can('canViewUsers')" class="nav-group">
+        <div class="nav-group">
           <div class="nav-item nav-group-header" @click="toggleSettings">
             <span class="nav-icon">⚙️</span>
             <span class="nav-label">Settings</span>
             <span class="nav-arrow" :class="{ expanded: settingsExpanded }">›</span>
           </div>
           <div v-if="settingsExpanded" class="nav-submenu">
-            <RouterLink v-if="auth.can('canViewDepartments')" to="/departments" class="nav-subitem">
+            <RouterLink to="/departments" class="nav-subitem">
               <span class="nav-icon">🏢</span>
               <span class="nav-label">Departments</span>
             </RouterLink>
-            <RouterLink v-if="auth.can('canViewUsers')" to="/users" class="nav-subitem">
+            <RouterLink to="/users" class="nav-subitem">
               <span class="nav-icon">👤</span>
               <span class="nav-label">Users</span>
             </RouterLink>
           </div>
-        </div>
-        
-        <!-- Logout - quick access in menu -->
-        <div class="nav-item" @click="handleLogout">
-          <span class="nav-icon">🚪</span>
-          <span class="nav-label">Logout</span>
         </div>
       </nav>
       <div class="sidebar-footer">
@@ -138,15 +123,9 @@ function toggleSettings() {
 }
 
 function handleLogout() {
-  // Clear all auth/session keys
   sessionStorage.removeItem('isLoggedIn');
-  sessionStorage.removeItem('userId');
-  sessionStorage.removeItem('staffId');
   sessionStorage.removeItem('userEmail');
   sessionStorage.removeItem('userName');
-  sessionStorage.removeItem('userRoles');
-  sessionStorage.removeItem('userDepartmentId');
-  sessionStorage.removeItem('mustChangePassword');
   isLoggedIn.value = false;
   router.push('/login');
 }

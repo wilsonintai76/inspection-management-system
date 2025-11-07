@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || 'http://inspectable.local/api',
+  baseURL: import.meta.env.VITE_API_BASE || 'http://localhost/inspectable-api/api',
   headers: {
     'Content-Type': 'application/json',
   },
