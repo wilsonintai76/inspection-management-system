@@ -6,15 +6,11 @@
         <h1 class="page-title">Overview</h1>
       </div>
       <div class="header-right">
-        <!-- Department Filter -->
-        <select v-if="!deptRestricted" v-model="filterDepartment" class="department-filter">
+        <!-- Department Filter - All users can filter -->
+        <select v-model="filterDepartment" class="department-filter">
           <option value="">All Departments</option>
           <option v-for="dept in departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
         </select>
-        <div v-else class="department-filter" style="pointer-events:none; opacity:.7;">
-          {{ currentDepartmentName }}
-        </div>
-        <button class="btn-logout" @click="logout">Logout</button>
       </div>
     </div>
 
@@ -101,30 +97,79 @@
 
         <!-- Inspection Status -->
         <section class="analysis-card">
-          <h2 class="section-title">Inspection Status</h2>
+          <h2 class="section-title">Location Inspection Status</h2>
           <p class="section-subtitle">Department inspection progress.</p>
-          <div class="status-list">
-            <div v-for="dept in departmentProgress" :key="dept.name" class="status-item">
-              <div class="status-header">
-                <span class="status-name">{{ dept.name }}</span>
-                <span class="status-count">{{ dept.completed }} / {{ dept.total }}</span>
+          <div class="status-list-container">
+            <div class="status-list">
+              <div v-for="dept in departmentProgress" :key="dept.name" class="status-item">
+                <div class="status-header">
+                  <span class="status-name">{{ dept.name }}</span>
+                  <span class="status-count">{{ dept.completed }} / {{ dept.total }}</span>
+                </div>
+                <div class="status-bar">
+                  <div class="status-fill" :style="{ width: dept.percentage + '%' }"></div>
+                </div>
               </div>
-              <div class="status-bar">
-                <div class="status-fill" :style="{ width: dept.percentage + '%' }"></div>
+              <div v-if="departmentProgress.length === 0" class="text-center text-muted">
+                No inspection data
               </div>
-            </div>
-            <div v-if="departmentProgress.length === 0" class="text-center text-muted">
-              No inspection data
             </div>
           </div>
         </section>
       </div>
+
+      <!-- Asset Inspection Progress Section -->
+      <section class="asset-progress-section">
+        <h2 class="section-title">Asset Inspection Progress</h2>
+        <p class="section-subtitle">Department asset inspection completion status.</p>
+        
+        <div v-if="loadingAssets" class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading asset data...</p>
+        </div>
+
+        <div v-else class="asset-table-wrapper">
+          <table class="asset-progress-table">
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th>Total Assets</th>
+                <th>Inspected</th>
+                <th>Not Inspected</th>
+                <th>Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in assetSummary" :key="row.department_id">
+                <td><strong>{{ row.department_name }}</strong></td>
+                <td>{{ row.total_assets }}</td>
+                <td class="text-success">{{ row.assets_inspected }}</td>
+                <td class="text-warning">{{ row.assets_not_inspected }}</td>
+                <td>
+                  <div class="percentage-cell">
+                    <div class="percentage-bar">
+                      <div 
+                        class="percentage-fill" 
+                        :style="{ width: row.percentage_inspected + '%' }"
+                      ></div>
+                    </div>
+                    <span class="percentage-text">{{ row.percentage_inspected }}%</span>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="assetSummary.length === 0">
+                <td colspan="5" class="text-center text-muted">No asset data available</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, type Department as DeptType, type Location as LocType, type User as UserType, type Inspection as InspType } from '../lib/api';
 import { useAuth } from '../composables/useAuth';
@@ -135,18 +180,15 @@ const auth = useAuth();
 // Department filter state
 const departments = ref<DeptType[]>([]);
 const filterDepartment = ref('');
-const deptRestricted = computed(() => auth.isDeptRestricted.value);
-const userDeptId = computed(() => auth.userDepartmentId.value);
-const currentDepartmentName = computed(() => {
-  const id = Number(userDeptId.value);
-  const d = departments.value.find(x => x.id === id);
-  return d?.name || 'Your Department';
-});
 
 // Raw data
 const locations = ref<LocType[]>([]);
 const inspections = ref<InspType[]>([]);
 const users = ref<UserType[]>([]);
+
+// Asset inspection data
+const loadingAssets = ref(false);
+const assetSummary = ref<any[]>([]);
 
 // Derived maps
 const inspectionByLocation = computed<Record<number, InspType>>(() => {
@@ -161,9 +203,8 @@ const inspectionByLocation = computed<Record<number, InspType>>(() => {
 });
 
 const filteredLocationList = computed(() => {
-  const deptFilter = deptRestricted.value ? String(userDeptId.value) : filterDepartment.value;
-  if (!deptFilter) return locations.value;
-  const deptId = Number(deptFilter);
+  if (!filterDepartment.value) return locations.value;
+  const deptId = Number(filterDepartment.value);
   return locations.value.filter(l => l.department_id === deptId);
 });
 
@@ -211,9 +252,9 @@ const auditorStats = computed(() => {
 const departmentProgress = computed(() => {
   const list: { name: string; total: number; completed: number; percentage: number }[] = [];
   const targetDepts = (() => {
-    const deptFilter = deptRestricted.value ? String(userDeptId.value) : filterDepartment.value;
-    if (deptFilter) {
-      const d = departments.value.find(x => String(x.id) === deptFilter);
+    if (filterDepartment.value) {
+      const filterId = Number(filterDepartment.value);
+      const d = departments.value.find(x => x.id === filterId);
       return d ? [d] : [];
     }
     return departments.value;
@@ -257,17 +298,38 @@ function logout() {
 }
 
 async function loadData() {
-  const deptQ = deptRestricted.value && userDeptId.value ? `?department_id=${userDeptId.value}` : '';
+  // Load all data - filtering will be done client-side via dropdown
   const [deptResp, locResp, inspResp, userResp] = await Promise.all([
     api.get('/departments.php'),
-    api.get(`/locations.php${deptQ}`),
-    api.get(`/inspections.php${deptQ}`),
+    api.get('/locations.php'),
+    api.get('/inspections.php'),
     api.get('/users.php'),
   ]);
   departments.value = deptResp.data;
   locations.value = locResp.data;
   inspections.value = inspResp.data;
   users.value = userResp.data;
+  
+  // Load asset summary data
+  await loadAssetSummary();
+}
+
+async function loadAssetSummary() {
+  loadingAssets.value = true;
+  try {
+    const params: any = { action: 'summary' };
+    if (filterDepartment.value) {
+      params.department_id = filterDepartment.value;
+    }
+
+    const response = await api.get('/asset-summary.php', { params });
+    assetSummary.value = response.data.summary || [];
+  } catch (err) {
+    console.error('Failed to load asset summary:', err);
+    assetSummary.value = [];
+  } finally {
+    loadingAssets.value = false;
+  }
 }
 
 onMounted(async () => {
@@ -276,6 +338,11 @@ onMounted(async () => {
   } catch (err) {
     console.error('Failed to load dashboard data:', err);
   }
+});
+
+// Watch for department filter changes to reload asset summary
+watch(filterDepartment, () => {
+  loadAssetSummary();
 });
 </script>
 
@@ -369,6 +436,8 @@ onMounted(async () => {
 
 .table-container {
   overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .schedule-table {
@@ -379,6 +448,9 @@ onMounted(async () => {
 .schedule-table thead {
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .schedule-table th {
@@ -522,11 +594,39 @@ onMounted(async () => {
   text-align: center;
 }
 
+.text-center {
+  text-align: center;
+}
+
 .text-muted {
   color: #9ca3af;
 }
 
 /* Status List */
+.status-list-container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.status-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.status-list-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.status-list-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.status-list-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 .status-list {
   display: flex;
   flex-direction: column;
@@ -569,6 +669,143 @@ onMounted(async () => {
   background: var(--teal);
   transition: width 0.3s ease;
   border-radius: 4px;
+}
+
+/* Asset Inspection Progress Section */
+.asset-progress-section {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.asset-table-wrapper {
+  max-height: 500px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.asset-table-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.asset-table-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.asset-table-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.asset-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.asset-progress-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.asset-progress-table thead {
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.asset-progress-table th {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.asset-progress-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+
+.asset-progress-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.asset-progress-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.percentage-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.percentage-bar {
+  flex: 1;
+  height: 20px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  min-width: 100px;
+}
+
+.percentage-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--teal) 0%, var(--emerald) 100%);
+  transition: width 0.3s ease;
+  border-radius: 10px;
+}
+
+.percentage-text {
+  font-weight: 600;
+  color: #374151;
+  min-width: 45px;
+  text-align: right;
+}
+
+.text-success {
+  color: #059669;
+  font-weight: 600;
+}
+
+.text-warning {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #6b7280;
+}
+
+.spinner {
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid var(--teal);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 1024px) {

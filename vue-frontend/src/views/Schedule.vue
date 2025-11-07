@@ -46,6 +46,7 @@
                 <span class="sort-icon">↕</span>
               </th>
               <th>Auditors</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -129,6 +130,17 @@
                   </div>
                 </div>
               </td>
+              <td>
+                <button 
+                  @click="toggleInspectionStatus(location.id)" 
+                  class="status-toggle"
+                  :class="getInspectionStatus(location.id) === 'Complete' ? 'status-complete' : 'status-pending'"
+                  :disabled="!canToggleStatus"
+                  :title="canToggleStatus ? 'Click to toggle status' : 'No permission to change status'"
+                >
+                  {{ getInspectionStatus(location.id) || 'Pending' }}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -208,6 +220,10 @@ const canSetDate = computed(() => {
   return result;
 });
 
+const canToggleStatus = computed(() => {
+  return isAuditor.value;
+});
+
 const filteredLocations = computed(() => {
   if (!filterDepartment.value) {
     return locations.value;
@@ -227,6 +243,42 @@ function getInspectionDate(locationId: number): string {
   }
   // Default to today
   return new Date().toISOString().split('T')[0];
+}
+
+function getInspectionStatus(locationId: number): string {
+  const inspection = inspectionMap.value[locationId];
+  return inspection?.status || 'Pending';
+}
+
+async function toggleInspectionStatus(locationId: number) {
+  if (!canToggleStatus.value) return;
+  
+  try {
+    const inspection = inspectionMap.value[locationId];
+    const currentStatus = inspection?.status || 'Pending';
+    const newStatus = currentStatus === 'Complete' ? 'Pending' : 'Complete';
+    
+    if (inspection) {
+      // Update existing inspection
+      await api.put(`/inspections.php?id=${inspection.id}`, {
+        ...inspection,
+        status: newStatus
+      });
+    } else {
+      // Create new inspection with status
+      await api.post('/inspections.php', {
+        location_id: locationId,
+        status: newStatus,
+        inspection_date: new Date().toISOString().split('T')[0]
+      });
+    }
+    
+    // Refresh data
+    await fetchInspections();
+  } catch (err) {
+    console.error('Error toggling status:', err);
+    alert('Failed to update status. Please try again.');
+  }
 }
 
 function getLocationAuditors(locationId: number) {
@@ -698,6 +750,8 @@ onMounted(async () => {
 
 .table-container {
   overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 .schedule-table {
@@ -708,6 +762,9 @@ onMounted(async () => {
 .schedule-table thead {
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .schedule-table th {
@@ -883,6 +940,39 @@ onMounted(async () => {
 .remove-icon {
   color: #ef4444;
   font-size: 1.125rem;
+}
+
+.status-toggle {
+  padding: 0.375rem 0.875rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-pending:hover:not(:disabled) {
+  background: #fde68a;
+}
+
+.status-complete {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-complete:hover:not(:disabled) {
+  background: #a7f3d0;
 }
 
 @media (max-width: 768px) {

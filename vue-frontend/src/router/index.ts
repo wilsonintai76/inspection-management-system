@@ -7,10 +7,12 @@ import ResetPassword from '../views/ResetPassword.vue';
 import Dashboard from '../views/Dashboard.vue';
 import Schedule from '../views/Schedule.vue';
 import Locations from '../views/Locations.vue';
-import InspectionStatus from '../views/InspectionStatus.vue';
-import Departments from '../views/Departments.vue';
+// Departments settings page is replaced by the Departments (summary) view
 import Users from '../views/Users.vue';
 import Profile from '../views/Profile.vue';
+import AssetInspection from '../views/AssetInspection.vue';
+import AssetUpload from '../views/AssetUpload.vue';
+import AssetManagement from '../views/AssetManagement.vue';
 import { hasPermission } from '../lib/permissions';
 const Inspections = { template: '<div style="padding: 2rem;">Inspections</div>' };
 
@@ -43,12 +45,17 @@ const router = createRouter({
     },
     { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, permission: 'canViewDashboard' } },
     { path: '/schedule', component: Schedule, meta: { requiresAuth: true, permission: 'canViewSchedule' } },
-    { path: '/departments', component: Departments, meta: { requiresAuth: true, permission: 'canViewDepartments' } },
-    { path: '/locations', component: Locations, meta: { requiresAuth: true, permission: 'canViewLocations' } },
+  { path: '/locations', component: Locations, meta: { requiresAuth: true, permission: 'canViewLocations' } },
+  // Departments summary is viewable by any authenticated user; CRUD guarded in component
+  { path: '/departments', component: AssetManagement, meta: { requiresAuth: true } },
+  // Backward compatibility: redirect old route
+  { path: '/asset-management', redirect: '/departments' },
     { path: '/inspections', component: Inspections, meta: { requiresAuth: true } },
+    { path: '/asset-management', component: AssetManagement, meta: { requiresAuth: true, permission: 'canViewAssetInspection' } },
+    { path: '/asset-inspection', component: AssetInspection, meta: { requiresAuth: true, permission: 'canViewAssetInspection' } },
+    { path: '/asset-upload', component: AssetUpload, meta: { requiresAuth: true, permission: 'canUploadAssets' } },
     { path: '/users', component: Users, meta: { requiresAuth: true, permission: 'canViewUsers' } },
     { path: '/profile', component: Profile, meta: { requiresAuth: true } },
-    { path: '/report/inspection-status', component: InspectionStatus, meta: { requiresAuth: true, permission: 'canViewInspectionStatus' } },
   ],
 });
 

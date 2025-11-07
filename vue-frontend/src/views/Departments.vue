@@ -37,12 +37,13 @@
             <tr>
               <th>Acronym</th>
               <th>Department Name</th>
+              <th>Total Assets</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="departments.length === 0">
-              <td colspan="3" class="no-data">
+              <td colspan="4" class="no-data">
                 <span class="no-data-icon">📭</span>
                 <p>No departments found</p>
               </td>
@@ -53,6 +54,16 @@
               </td>
               <td>
                 <div class="department-name">{{ dept.name }}</div>
+              </td>
+              <td>
+                <input 
+                  v-model.number="dept.total_assets" 
+                  @blur="updateTotalAssets(dept)"
+                  type="number" 
+                  class="total-assets-input"
+                  min="0"
+                  placeholder="0"
+                />
               </td>
               <td>
                 <div class="action-buttons">
@@ -145,6 +156,7 @@ interface Department {
   id: number;
   name: string;
   acronym?: string;
+  total_assets?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -254,6 +266,23 @@ async function deleteDepartment() {
   } catch (err) {
     console.error('Error deleting department:', err);
     alert('Failed to delete department. Please try again.');
+  }
+}
+
+async function updateTotalAssets(dept: Department) {
+  try {
+    const data = {
+      name: dept.name,
+      acronym: dept.acronym || null,
+      total_assets: dept.total_assets || 0
+    };
+    
+    await api.put(`/departments.php?id=${dept.id}`, data);
+  } catch (err) {
+    console.error('Error updating total assets:', err);
+    alert('Failed to update total assets. Please try again.');
+    // Refresh to get the correct value back
+    await fetchDepartments();
   }
 }
 
@@ -437,6 +466,28 @@ onMounted(async () => {
 .department-name {
   color: #374151;
   font-size: 0.9375rem;
+}
+
+.total-assets-input {
+  width: 120px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #374151;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.total-assets-input:hover {
+  border-color: var(--teal);
+}
+
+.total-assets-input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
 }
 
 .action-buttons {

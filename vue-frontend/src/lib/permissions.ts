@@ -17,6 +17,8 @@ export interface Permission {
   canManageLocations: boolean;
   canViewUsers: boolean;
   canManageUsers: boolean;
+  canViewAssetInspection: boolean; // View asset inspection summary
+  canUploadAssets: boolean; // Upload asset files (Admin only)
   departmentRestricted: boolean; // Limited to own department only
 }
 
@@ -38,6 +40,8 @@ export function getPermissions(role: UserRole): Permission {
         canManageLocations: false,
         canViewUsers: false,
         canManageUsers: false,
+        canViewAssetInspection: false,
+        canUploadAssets: false,
         departmentRestricted: false
       };
 
@@ -54,6 +58,8 @@ export function getPermissions(role: UserRole): Permission {
         canManageLocations: true,
         canViewUsers: false,
         canManageUsers: false,
+        canViewAssetInspection: false,
+        canUploadAssets: false,
         departmentRestricted: true // Only their department (IT)
       };
 
@@ -70,6 +76,8 @@ export function getPermissions(role: UserRole): Permission {
         canManageLocations: false,
         canViewUsers: false,
         canManageUsers: false,
+        canViewAssetInspection: false,
+        canUploadAssets: false,
         departmentRestricted: false
       };
 
@@ -86,6 +94,8 @@ export function getPermissions(role: UserRole): Permission {
         canManageLocations: true,
         canViewUsers: true,
         canManageUsers: true,
+        canViewAssetInspection: true,
+        canUploadAssets: true,
         departmentRestricted: false // Access all departments
       };
 
@@ -103,6 +113,8 @@ export function getPermissions(role: UserRole): Permission {
         canManageLocations: false,
         canViewUsers: false,
         canManageUsers: false,
+        canViewAssetInspection: false,
+        canUploadAssets: false,
         departmentRestricted: false
       };
   }

@@ -19,39 +19,48 @@
           <span class="nav-label">Schedule</span>
         </RouterLink>
         
-        <!-- Locations - Asset Officer and Admin only -->
-        <RouterLink v-if="auth.can('canViewLocations')" to="/locations" class="nav-item">
-          <span class="nav-icon">📍</span>
-          <span class="nav-label">Locations</span>
-        </RouterLink>
-        
         <!-- Reports Group - Asset Officer and Admin only -->
-        <div v-if="auth.can('canViewInspectionStatus')" class="nav-group">
+        <div v-if="auth.can('canViewAssetInspection')" class="nav-group">
           <div class="nav-item nav-group-header" @click="toggleReports">
             <span class="nav-icon">📊</span>
             <span class="nav-label">Reports</span>
             <span class="nav-arrow" :class="{ expanded: reportsExpanded }">›</span>
           </div>
           <div v-if="reportsExpanded" class="nav-submenu">
-            <RouterLink to="/report/inspection-status" class="nav-subitem">
-              <span class="nav-icon">📋</span>
-              <span class="nav-label">Inspection Status</span>
+            <RouterLink v-if="auth.can('canViewAssetInspection')" to="/asset-inspection" class="nav-subitem">
+              <span class="nav-icon">📦</span>
+              <span class="nav-label">Asset Inspection</span>
             </RouterLink>
           </div>
         </div>
         
+        <!-- Departments Management Group -->
+        <div v-if="auth.can('canViewAssetInspection') || auth.can('canViewLocations')" class="nav-group">
+          <div class="nav-item nav-group-header" @click="toggleDepartments">
+            <span class="nav-icon">🏢</span>
+            <span class="nav-label">Departments</span>
+            <span class="nav-arrow" :class="{ expanded: departmentsExpanded }">›</span>
+          </div>
+          <div v-if="departmentsExpanded" class="nav-submenu">
+            <RouterLink v-if="auth.can('canViewLocations') || auth.can('canViewAssetInspection') || auth.can('canViewInspectionStatus')" to="/departments" class="nav-subitem">
+              <span class="nav-icon">🗂️</span>
+              <span class="nav-label">Summary</span>
+            </RouterLink>
+            <RouterLink v-if="auth.can('canViewLocations')" to="/locations" class="nav-subitem">
+              <span class="nav-icon">📍</span>
+              <span class="nav-label">Locations</span>
+            </RouterLink>
+          </div>
+        </div>
+
         <!-- Settings Group - Admin only -->
-        <div v-if="auth.can('canViewDepartments') || auth.can('canViewUsers')" class="nav-group">
+        <div v-if="auth.can('canViewUsers')" class="nav-group">
           <div class="nav-item nav-group-header" @click="toggleSettings">
             <span class="nav-icon">⚙️</span>
             <span class="nav-label">Settings</span>
             <span class="nav-arrow" :class="{ expanded: settingsExpanded }">›</span>
           </div>
           <div v-if="settingsExpanded" class="nav-submenu">
-            <RouterLink v-if="auth.can('canViewDepartments')" to="/departments" class="nav-subitem">
-              <span class="nav-icon">🏢</span>
-              <span class="nav-label">Departments</span>
-            </RouterLink>
             <RouterLink v-if="auth.can('canViewUsers')" to="/users" class="nav-subitem">
               <span class="nav-icon">👤</span>
               <span class="nav-label">Users</span>
@@ -101,6 +110,7 @@ const isLoggedIn = ref(!!sessionStorage.getItem('isLoggedIn'));
 
 const reportsExpanded = ref(false);
 const settingsExpanded = ref(false);
+const departmentsExpanded = ref(false);
 
 // Update isLoggedIn when route changes
 watch(() => route.path, () => {
@@ -135,6 +145,10 @@ function toggleReports() {
 
 function toggleSettings() {
   settingsExpanded.value = !settingsExpanded.value;
+}
+
+function toggleDepartments() {
+  departmentsExpanded.value = !departmentsExpanded.value;
 }
 
 function handleLogout() {

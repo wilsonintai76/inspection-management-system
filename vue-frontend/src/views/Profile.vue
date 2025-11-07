@@ -6,9 +6,6 @@
         <span class="breadcrumb-icon">👤</span>
         <h1 class="page-title">Profile</h1>
       </div>
-      <div class="header-right">
-        <button class="btn-logout" @click="logout">Logout</button>
-      </div>
     </div>
 
     <!-- Loading State -->

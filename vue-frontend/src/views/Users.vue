@@ -70,7 +70,14 @@
                 <div class="roles">{{ formatRoles(user.roles) }}</div>
               </td>
               <td>
-                <span class="status-badge status-verified">Verified</span>
+                <button 
+                  @click="toggleStatus(user)" 
+                  class="status-badge"
+                  :class="user.status === 'Verified' ? 'status-verified' : 'status-unverified'"
+                  :title="`Click to ${user.status === 'Verified' ? 'unverify' : 'verify'}`"
+                >
+                  {{ user.status || 'Unverified' }}
+                </button>
               </td>
               <td>
                 <div class="action-buttons">
@@ -80,6 +87,13 @@
                     title="Edit"
                   >
                     ✏️
+                  </button>
+                  <button 
+                    @click="openTransferDialog(user)" 
+                    class="btn-transfer"
+                    title="Transfer Staff ID"
+                  >
+                    🔄
                   </button>
                   <button 
                     @click="confirmDelete(user)" 
@@ -218,6 +232,43 @@
         </div>
       </div>
     </div>
+
+    <!-- Transfer Staff ID Dialog -->
+    <div v-if="showTransferDialog" class="dialog-overlay" @click="closeTransferDialog">
+      <div class="dialog dialog-small" @click.stop>
+        <div class="dialog-header">
+          <h3>Transfer Staff ID</h3>
+          <button @click="closeTransferDialog" class="btn-close">✕</button>
+        </div>
+        <div class="dialog-body">
+          <p>Transfer staff ID for <strong>{{ userToTransfer?.name }}</strong></p>
+          <div class="transfer-info">
+            <div class="current-id">
+              <label>Current Staff ID:</label>
+              <span class="id-badge">{{ userToTransfer?.staff_id }}</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="new-staff-id">New Staff ID *</label>
+            <input 
+              id="new-staff-id"
+              v-model="newStaffId" 
+              type="text" 
+              placeholder="Enter new 4-digit staff ID" 
+              class="form-input"
+              maxlength="4"
+              pattern="\d{4}"
+            />
+            <small class="field-hint">Must be 4 digits and not already in use.</small>
+          </div>
+          <p class="warning-text">⚠️ This will update the staff ID across all database tables. The user will need to login with the new staff ID.</p>
+        </div>
+        <div class="dialog-footer">
+          <button @click="closeTransferDialog" class="btn-cancel">Cancel</button>
+          <button @click="transferStaffId" class="btn-transfer-confirm" :disabled="!isNewStaffIdValid">Transfer</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -243,6 +294,8 @@ interface User {
   phone?: string;
   department_id?: number;
   roles?: UserRole[] | string[];
+  status?: string;
+  email_verified?: number;
 }
 
 interface FormData {
@@ -262,8 +315,11 @@ const error = ref('');
 
 const showDialog = ref(false);
 const showDeleteDialog = ref(false);
+const showTransferDialog = ref(false);
 const editingUser = ref<User | null>(null);
 const userToDelete = ref<User | null>(null);
+const userToTransfer = ref<User | null>(null);
+const newStaffId = ref('');
 
 const formData = ref<FormData>({
   staff_id: '',
@@ -273,6 +329,10 @@ const formData = ref<FormData>({
   phone: '',
   roles: [],
   department_id: ''
+});
+
+const isNewStaffIdValid = computed(() => {
+  return /^\d{4}$/.test(newStaffId.value) && newStaffId.value !== userToTransfer.value?.staff_id;
 });
 
 const isFormValid = computed(() => {
@@ -347,6 +407,18 @@ function confirmDelete(user: User) {
 function closeDeleteDialog() {
   showDeleteDialog.value = false;
   userToDelete.value = null;
+}
+
+function openTransferDialog(user: User) {
+  userToTransfer.value = user;
+  newStaffId.value = '';
+  showTransferDialog.value = true;
+}
+
+function closeTransferDialog() {
+  showTransferDialog.value = false;
+  userToTransfer.value = null;
+  newStaffId.value = '';
 }
 
 async function fetchUsers() {
@@ -428,6 +500,80 @@ async function deleteUser() {
   } catch (err) {
     console.error('Error deleting user:', err);
     alert('Failed to delete user. Please try again.');
+  }
+}
+
+async function transferStaffId() {
+  if (!userToTransfer.value || !isNewStaffIdValid.value) return;
+
+  try {
+    const userRoles = JSON.parse(sessionStorage.getItem('userRoles') || '[]');
+    
+    const response = await api.post('/transfer-staff-id.php', {
+      old_staff_id: userToTransfer.value.staff_id,
+      new_staff_id: newStaffId.value.trim()
+    }, {
+      headers: {
+        'X-User-Roles': JSON.stringify(userRoles)
+      }
+    });
+
+    if (response.data && response.data.success) {
+      alert(`Staff ID transferred successfully!\n\nOld: ${userToTransfer.value.staff_id}\nNew: ${newStaffId.value}\n\nThe user must login with the new staff ID.`);
+      closeTransferDialog();
+      await fetchUsers();
+    }
+  } catch (err: any) {
+    console.error('Error transferring staff ID:', err);
+    const errorMsg = err.response?.data?.error || 'Failed to transfer staff ID. Please try again.';
+    alert(`Error: ${errorMsg}`);
+  }
+}
+
+async function toggleStatus(user: User) {
+  try {
+    // Get current user roles from session storage for authentication
+    const userRoles = JSON.parse(sessionStorage.getItem('userRoles') || '[]');
+    
+    // Check if user is admin
+    if (!userRoles.includes('Admin')) {
+      alert('Only administrators can verify/unverify users.');
+      return;
+    }
+    
+    // Toggle verified status
+    const newVerified = user.status !== 'Verified';
+    
+    console.log('Toggling status for user:', user.staff_id, 'to', newVerified ? 'Verified' : 'Unverified');
+    console.log('User roles:', userRoles);
+    
+    // Call verify-user API
+    const response = await api.post('/verify-user.php', {
+      staff_id: user.staff_id,
+      verified: newVerified
+    }, {
+      headers: {
+        'X-User-Roles': JSON.stringify(userRoles)
+      }
+    });
+
+    console.log('API response:', response.data);
+
+    // Update the local user object with the response
+    if (response.data && response.data.updated) {
+      const updatedUser = response.data.user;
+      const index = users.value.findIndex(u => u.id === user.id);
+      if (index !== -1) {
+        users.value[index].status = updatedUser.status;
+        users.value[index].email_verified = updatedUser.email_verified;
+      }
+      alert(`User ${user.staff_id} has been ${newVerified ? 'verified' : 'unverified'} successfully!`);
+    }
+  } catch (err: any) {
+    console.error('Error toggling status:', err);
+    console.error('Error response:', err.response);
+    const errorMsg = err.response?.data?.error || 'Failed to update status. Please try again.';
+    alert(`Error: ${errorMsg}`);
   }
 }
 
@@ -860,6 +1006,61 @@ onMounted(async () => {
 
 .btn-delete-confirm:hover {
   background: #dc2626;
+}
+
+.btn-transfer-confirm {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-transfer-confirm:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-transfer-confirm:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn-transfer {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.btn-transfer:hover {
+  background: #dbeafe;
+}
+
+.transfer-info {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f3f4f6;
+  border-radius: 6px;
+}
+
+.current-id {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.current-id label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.id-badge {
+  background: #3b82f6;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .warning-text {
