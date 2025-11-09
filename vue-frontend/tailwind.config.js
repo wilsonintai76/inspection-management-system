@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
+import daisyui from 'daisyui'
+
 export default {
+  prefix: 'tw-',
   content: [
     "./index.html",
     "./src/**/*.{vue,js,ts,jsx,tsx}",
@@ -12,5 +15,11 @@ export default {
       },
     },
   },
-  plugins: [],
+  corePlugins: {
+    preflight: false, // avoid interfering with existing custom CSS
+  },
+  plugins: [daisyui],
+  daisyui: {
+    themes: ["light", "dark"],
+  }
 }
