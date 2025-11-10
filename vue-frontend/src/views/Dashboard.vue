@@ -91,9 +91,9 @@
             <i class="fas fa-user-friends text-primary"></i>
             Auditor Analysis
           </h3>
-          <p class="text-sm text-base-content/60 mb-2">Number of locations each auditor is assigned to.</p>
-          <div class="max-h-[24rem] overflow-y-auto pr-2">
-            <table class="table table-sm">
+          <p class="text-sm text-base-content/60 mb-1">Number of locations each auditor is assigned to.</p>
+          <div class="overflow-x-auto">
+            <table class="table table-sm mt-0">
               <thead>
               <tr>
                 <th>Auditor Name</th>
