@@ -174,8 +174,6 @@
                   <th class="text-xs font-semibold uppercase">Supervisor</th>
                   <th class="text-xs font-semibold uppercase">Department</th>
                   <th class="text-xs font-semibold uppercase">Location</th>
-                  <th class="text-xs font-semibold uppercase">Status</th>
-                  <th class="text-xs font-semibold uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -185,36 +183,6 @@
                   <td>{{ asset.pegawai_penempatan }}</td>
                   <td>{{ asset.bahagian }}</td>
                   <td>{{ asset.lokasi_terkini }}</td>
-                  <td>
-                    <Badge 
-                      v-if="asset.is_inspected"
-                      variant="success"
-                      label="✓ Inspected"
-                    />
-                    <Badge 
-                      v-else
-                      variant="warning"
-                      label="⚠ Not Inspected"
-                    />
-                  </td>
-                  <td>
-                    <button
-                      v-if="!asset.is_inspected"
-                      @click="markAsInspected(asset.id)"
-                      class="btn btn-success btn-sm"
-                      title="Mark as inspected"
-                    >
-                      ✓ Mark
-                    </button>
-                    <button
-                      v-else
-                      @click="markAsNotInspected(asset.id)"
-                      class="btn btn-warning btn-sm"
-                      title="Mark as not inspected"
-                    >
-                      ✗ Unmark
-                    </button>
-                  </td>
                 </tr>
               </tbody>
             </table>
