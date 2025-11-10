@@ -1,156 +1,160 @@
 <template>
-  <div class="departments-page">
+  <div class="p-6 max-w-7xl mx-auto">
     <!-- Page Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <span class="breadcrumb-icon">🏢</span>
-        <h1 class="page-title">Departments</h1>
-      </div>
-    </div>
+    <PageHeader 
+      icon="🏢" 
+      title="Departments"
+      subtitle="Manage department information and asset totals"
+    />
 
     <!-- Departments Card -->
-    <div class="departments-card">
-      <div class="card-header">
-        <h2 class="card-title">Manage Departments</h2>
-        <button class="btn-add" @click="openAddDialog">
-          <span class="btn-icon">⊕</span>
-          Add Department
-        </button>
-      </div>
-
-      <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading departments...</p>
-      </div>
-
-      <!-- Error State -->
-      <div v-else-if="error" class="error-state">
-        <p class="error-message">{{ error }}</p>
-        <button @click="fetchDepartments" class="btn-retry">Retry</button>
-      </div>
-
-      <!-- Departments Table -->
-      <div v-else class="table-container">
-        <table class="departments-table">
-          <thead>
-            <tr>
-              <th>Acronym</th>
-              <th>Department Name</th>
-              <th>Total Assets</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="departments.length === 0">
-              <td colspan="4" class="no-data">
-                <span class="no-data-icon">📭</span>
-                <p>No departments found</p>
-              </td>
-            </tr>
-            <tr v-for="dept in departments" :key="dept.id">
-              <td>
-                <div class="acronym">{{ dept.acronym || '—' }}</div>
-              </td>
-              <td>
-                <div class="department-name">{{ dept.name }}</div>
-              </td>
-              <td>
-                <input 
-                  v-model.number="dept.total_assets" 
-                  @blur="updateTotalAssets(dept)"
-                  type="number" 
-                  class="total-assets-input"
-                  min="0"
-                  placeholder="0"
-                />
-              </td>
-              <td>
-                <div class="action-buttons">
-                  <button 
-                    @click="openEditDialog(dept)" 
-                    class="btn-edit"
-                    title="Edit"
-                  >
-                    ✏️
-                  </button>
-                  <button 
-                    @click="confirmDelete(dept)" 
-                    class="btn-delete"
-                    title="Delete"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Add/Edit Dialog -->
-    <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
-      <div class="dialog" @click.stop>
-        <div class="dialog-header">
-          <h3>{{ editingDepartment ? 'Edit Department' : 'Add New Department' }}</h3>
-          <button @click="closeDialog" class="btn-close">✕</button>
-        </div>
-        <div class="dialog-body">
-          <div class="form-group">
-            <label for="dept-acronym">Acronym</label>
-            <input 
-              id="dept-acronym"
-              v-model="formData.acronym" 
-              type="text" 
-              placeholder="e.g., JKM" 
-              class="form-input"
-              maxlength="20"
-            />
-          </div>
-          <div class="form-group">
-            <label for="dept-name">Department Name *</label>
-            <input 
-              id="dept-name"
-              v-model="formData.name" 
-              type="text" 
-              placeholder="e.g., Kejuruteraan Mekanikal" 
-              class="form-input"
-            />
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button @click="closeDialog" class="btn-cancel">Cancel</button>
-          <button @click="saveDepartment" class="btn-save" :disabled="!isFormValid">
-            {{ editingDepartment ? 'Update' : 'Create' }}
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="card-title text-xl">Manage Departments</h2>
+          <button class="btn btn-success gap-2" @click="openAddDialog">
+            <span class="text-xl">⊕</span>
+            Add Department
           </button>
         </div>
+
+        <!-- Loading State -->
+        <LoadingSpinner v-if="loading" message="Loading departments..." />
+
+        <!-- Error State -->
+        <div v-else-if="error" class="flex flex-col items-center justify-center py-16 gap-4">
+          <div class="alert alert-error max-w-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{{ error }}</span>
+          </div>
+          <button @click="fetchDepartments" class="btn btn-success">Retry</button>
+        </div>
+
+        <!-- Departments Table -->
+        <div v-else class="overflow-x-auto">
+          <EmptyState 
+            v-if="departments.length === 0"
+            icon="📭"
+            title="No departments found"
+            message="Create your first department to get started"
+          />
+          <table v-else class="table table-zebra w-full">
+            <thead>
+              <tr>
+                <th class="text-xs font-semibold uppercase tracking-wider">Acronym</th>
+                <th class="text-xs font-semibold uppercase tracking-wider">Department Name</th>
+                <th class="text-xs font-semibold uppercase tracking-wider">Total Assets</th>
+                <th class="text-xs font-semibold uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="dept in departments" :key="dept.id">
+                <td class="font-semibold">{{ dept.acronym || '—' }}</td>
+                <td>{{ dept.name }}</td>
+                <td>
+                  <input 
+                    v-model.number="dept.total_assets" 
+                    @blur="updateTotalAssets(dept)"
+                    type="number" 
+                    class="input input-bordered input-sm w-32 text-center"
+                    min="0"
+                    placeholder="0"
+                  />
+                </td>
+                <td>
+                  <div class="flex gap-2">
+                    <button 
+                      @click="openEditDialog(dept)" 
+                      class="btn btn-ghost btn-sm"
+                      title="Edit"
+                    >
+                      ✏️
+                    </button>
+                    <button 
+                      @click="confirmDelete(dept)" 
+                      class="btn btn-ghost btn-sm text-error"
+                      title="Delete"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <!-- Delete Confirmation Dialog -->
-    <div v-if="showDeleteDialog" class="dialog-overlay" @click="closeDeleteDialog">
-      <div class="dialog dialog-small" @click.stop>
-        <div class="dialog-header">
-          <h3>Delete Department</h3>
-          <button @click="closeDeleteDialog" class="btn-close">✕</button>
+    <!-- Add/Edit Modal -->
+    <Modal 
+      v-model="showDialog"
+      :title="editingDepartment ? 'Edit Department' : 'Add New Department'"
+    >
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">Acronym</span>
+          </label>
+          <input 
+            id="dept-acronym"
+            v-model="formData.acronym" 
+            type="text" 
+            placeholder="e.g., JKM" 
+            class="input input-bordered w-full"
+            maxlength="20"
+          />
         </div>
-        <div class="dialog-body">
-          <p>Are you sure you want to delete <strong>{{ departmentToDelete?.name }}</strong>?</p>
-          <p class="warning-text">This will also delete all locations and inspections associated with this department.</p>
-        </div>
-        <div class="dialog-footer">
-          <button @click="closeDeleteDialog" class="btn-cancel">Cancel</button>
-          <button @click="deleteDepartment" class="btn-delete-confirm">Delete</button>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">Department Name *</span>
+          </label>
+          <input 
+            id="dept-name"
+            v-model="formData.name" 
+            type="text" 
+            placeholder="e.g., Kejuruteraan Mekanikal" 
+            class="input input-bordered w-full"
+          />
         </div>
       </div>
-    </div>
+      <template #actions>
+        <button @click="closeDialog" class="btn btn-ghost">Cancel</button>
+        <button @click="saveDepartment" class="btn btn-success" :disabled="!isFormValid">
+          {{ editingDepartment ? 'Update' : 'Create' }}
+        </button>
+      </template>
+    </Modal>
+
+    <!-- Delete Confirmation Modal -->
+    <Modal 
+      v-model="showDeleteDialog"
+      title="Delete Department"
+      size="sm"
+    >
+      <div class="space-y-4">
+        <p>Are you sure you want to delete <strong>{{ departmentToDelete?.name }}</strong>?</p>
+        <div class="alert alert-warning">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span class="text-sm">This will also delete all locations and inspections associated with this department.</span>
+        </div>
+      </div>
+      <template #actions>
+        <button @click="closeDeleteDialog" class="btn btn-ghost">Cancel</button>
+        <button @click="deleteDepartment" class="btn btn-error">Delete</button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import api from '../api';
+import { PageHeader, LoadingSpinner, EmptyState, Modal } from '../components';
 
 interface Department {
   id: number;
@@ -290,405 +294,3 @@ onMounted(async () => {
   await fetchDepartments();
 });
 </script>
-
-<style scoped>
-.departments-page {
-  padding: 2rem;
-  max-width: 1400px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.breadcrumb-icon {
-  font-size: 1.5rem;
-}
-
-.page-title {
-  font-size: 1.875rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.departments-card {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.btn-add {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.btn-add:hover {
-  background: #059669;
-}
-
-.btn-icon {
-  font-size: 1.25rem;
-}
-
-.loading-state,
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  color: #6b7280;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f4f6;
-  border-top-color: #10b981;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error-message {
-  color: #ef4444;
-  margin-bottom: 1rem;
-}
-
-.btn-retry {
-  padding: 0.5rem 1rem;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.btn-retry:hover {
-  background: #059669;
-}
-
-.table-container {
-  overflow-x: auto;
-}
-
-.departments-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.departments-table thead {
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.departments-table th {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.departments-table tbody tr {
-  border-bottom: 1px solid #f3f4f6;
-  transition: background-color 0.15s;
-}
-
-.departments-table tbody tr:hover {
-  background: #f9fafb;
-}
-
-.departments-table td {
-  padding: 1.25rem 1.5rem;
-  color: #374151;
-}
-
-.no-data {
-  text-align: center;
-  padding: 4rem 2rem !important;
-  color: #9ca3af;
-}
-
-.no-data-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
-}
-
-.acronym {
-  font-weight: 600;
-  color: #1f2937;
-  font-size: 0.9375rem;
-}
-
-.department-name {
-  color: #374151;
-  font-size: 0.9375rem;
-}
-
-.total-assets-input {
-  width: 120px;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: #374151;
-  text-align: center;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.total-assets-input:hover {
-  border-color: var(--teal);
-}
-
-.total-assets-input:focus {
-  outline: none;
-  border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
-}
-
-.action-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn-edit,
-.btn-delete {
-  padding: 0.375rem 0.75rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  transition: background-color 0.15s;
-}
-
-.btn-edit:hover {
-  background: #dbeafe;
-}
-
-.btn-delete:hover {
-  background: #fee2e2;
-}
-
-/* Dialog Styles */
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.dialog {
-  background: white;
-  border-radius: 0.75rem;
-  max-width: 500px;
-  width: 100%;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-.dialog-small {
-  max-width: 400px;
-}
-
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.dialog-header h3 {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.btn-close {
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  border-radius: 0.375rem;
-  font-size: 1.25rem;
-  transition: background-color 0.15s;
-}
-
-.btn-close:hover {
-  background: #f3f4f6;
-}
-
-.dialog-body {
-  padding: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group:last-child {
-  margin-bottom: 0;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #1f2937;
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.9375rem;
-  color: #1f2937;
-  background: white;
-  box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.form-input::placeholder {
-  color: #9ca3af;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.btn-cancel,
-.btn-save,
-.btn-delete-confirm {
-  padding: 0.625rem 1.25rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.btn-cancel {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.btn-cancel:hover {
-  background: #e5e7eb;
-}
-
-.btn-save {
-  background: #10b981;
-  color: white;
-}
-
-.btn-save:hover:not(:disabled) {
-  background: #059669;
-}
-
-.btn-save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-delete-confirm {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-delete-confirm:hover {
-  background: #dc2626;
-}
-
-.warning-text {
-  color: #ef4444;
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
-}
-
-@media (max-width: 768px) {
-  .departments-page {
-    padding: 1rem;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .btn-add {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style>
