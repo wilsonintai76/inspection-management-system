@@ -145,6 +145,38 @@
             <div v-if="uploadResult.success" class="text-center mt-4">
               <router-link to="/users" class="btn btn-primary">View Users</router-link>
             </div>
+            <div v-if="uploadResult.success && generatedCredentials.length > 0" class="mt-6">
+              <h3 class="text-lg font-semibold mb-2">Generated Temporary Passwords (first {{ generatedCredentials.length }} users)</h3>
+              <div class="overflow-x-auto">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Staff ID</th>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Temp Password</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="cred in generatedCredentials" :key="cred.user_id">
+                      <td class="font-medium">{{ cred.staff_id }}</td>
+                      <td>{{ cred.name }}</td>
+                      <td class="text-xs">{{ cred.email }}</td>
+                      <td><code class="px-1 bg-base-200 rounded text-xs">{{ cred.temporary_password }}</code></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-3">
+                <button class="btn btn-outline btn-sm" @click="copyCredentialsToClipboard">
+                  Copy CSV to Clipboard
+                </button>
+                <button class="btn btn-outline btn-sm" @click="downloadCredentialsCsv">
+                  Download CSV
+                </button>
+              </div>
+              <p class="text-xs mt-2 opacity-70">Passwords are shown only once. Ensure secure distribution to users and instruct them to change on first login.</p>
+            </div>
           </div>
 
           <div v-if="error" class="alert alert-error mt-6">
@@ -229,6 +261,7 @@ const notes = ref('');
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadResult = ref<any>(null);
+const generatedCredentials = ref<Array<{staff_id:string; user_id:string; email:string; name:string; temporary_password:string}>>([]);
 const error = ref('');
 
 const userId = sessionStorage.getItem('userId');
@@ -305,6 +338,7 @@ async function uploadFile() {
       files_processed: response.data.files_processed || selectedFiles.value.length,
       errors: response.data.errors || [],
     };
+    generatedCredentials.value = response.data.credentials || [];
 
     selectedFiles.value = [];
     notes.value = '';
@@ -334,6 +368,26 @@ function downloadTemplate() {
   const link = document.createElement('a');
   link.href = url;
   link.download = 'user_import_template.csv';
+  link.click();
+  window.URL.revokeObjectURL(url);
+}
+
+function copyCredentialsToClipboard() {
+  const lines = generatedCredentials.value.map(c => `${c.staff_id},${c.email},${c.temporary_password}`);
+  const header = 'Staff ID,Email,Temporary Password';
+  const text = [header, ...lines].join('\n');
+  navigator.clipboard.writeText(text);
+}
+
+function downloadCredentialsCsv() {
+  const header = 'Staff ID,Name,Email,Temporary Password';
+  const lines = generatedCredentials.value.map(c => `${c.staff_id},"${c.name}",${c.email},${c.temporary_password}`);
+  const csv = [header, ...lines].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'generated_user_credentials.csv';
   link.click();
   window.URL.revokeObjectURL(url);
 }

@@ -11,6 +11,8 @@ if (!is_dir($srcPath) || !file_exists($configPath)) {
 require_once $srcPath . '/cors.php';
 require_once $configPath;
 require_once $srcPath . '/db.php';
+// Password utilities (generation + hashing + optional email send)
+require_once $srcPath . '/password_utils.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -198,6 +200,7 @@ try {
             $imported = 0;
             $skipped = 0;
             $rowNumber = 1;
+            $generatedCredentials = []; // collect temp passwords to return to admin (not stored in plain text elsewhere)
             
             foreach ($allData as $row) {
                 $rowNumber++;
@@ -266,27 +269,51 @@ try {
                 $userId = strtolower(str_replace(' ', '', $name)) . '_' . $staffId;
                 
                 try {
-                    // Insert user
+                    // Generate secure temporary password
+                    $tempPassword = generate_password(12);
+                    $passwordHash = hash_password($tempPassword);
+                    $mustChange = 1; // force change at first login
+
+                    // Decide verification/status policy: admin bulk import -> auto-verified
+                    $emailVerified = 1; // user can log in immediately
+                    $status = 'Verified';
+
+                    // Insert user with password hash
                     $stmt = $pdo->prepare('
                         INSERT INTO users 
-                        (id, staff_id, name, email, personal_email, phone, department_id, status, email_verified) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, "Unverified", 0)
+                        (id, staff_id, name, email, personal_email, phone, department_id, photo_url, password_hash, must_change_password, email_verified, status) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
                     ');
                     $stmt->execute([
-                        $userId, 
-                        $staffId, 
-                        $name, 
-                        $email, 
-                        $personalEmail ?: null, 
-                        $phone ?: null, 
-                        $departmentId
+                        $userId,
+                        $staffId,
+                        $name,
+                        $email,
+                        $personalEmail ?: null,
+                        $phone ?: null,
+                        $departmentId,
+                        $passwordHash,
+                        $mustChange,
+                        $emailVerified,
+                        $status
                     ]);
-                    
+
                     // Assign role
                     $stmt = $pdo->prepare('INSERT INTO user_roles (user_id, role) VALUES (?, ?)');
                     $stmt->execute([$userId, $role]);
-                    
+
                     $imported++;
+
+                    // Collect credential (limit collection to first 200 for response size control)
+                    if (count($generatedCredentials) < 200) {
+                        $generatedCredentials[] = [
+                            'staff_id' => $staffId,
+                            'user_id' => $userId,
+                            'email' => $email,
+                            'name' => $name,
+                            'temporary_password' => $tempPassword
+                        ];
+                    }
                 } catch (PDOException $e) {
                     $errors[] = "Row $rowNumber: Database error - " . $e->getMessage();
                     $skipped++;
@@ -299,6 +326,7 @@ try {
                 'users_skipped' => $skipped,
                 'files_processed' => count($files),
                 'errors' => $errors,
+                'credentials' => $generatedCredentials,
                 'message' => count($files) === 1 
                     ? "Successfully imported $imported users" . ($skipped > 0 ? " ($skipped skipped)" : "")
                     : "Successfully processed " . count($files) . " files: imported $imported users" . ($skipped > 0 ? " ($skipped skipped)" : "")
