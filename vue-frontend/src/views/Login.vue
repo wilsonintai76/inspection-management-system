@@ -149,15 +149,21 @@
       </div>
     </section>
 
-    <footer class="footer footer-center p-10 bg-base-200">
-      <div>
-        <p class="text-sm opacity-70">© {{ new Date().getFullYear() }} Inspectable. All rights reserved.</p>
-      </div>
-      <div>
-        <div class="grid grid-flow-col gap-4">
-          <a href="#about" class="link link-hover">About</a>
-          <a href="#features" class="link link-hover">Features</a>
-          <a href="#contact" class="link link-hover">Contact</a>
+    <footer class="footer footer-center p-6 bg-neutral text-neutral-content">
+      <div class="max-w-7xl mx-auto w-full">
+        <div class="flex flex-wrap justify-center items-center gap-4 text-sm mb-2">
+          <a href="#notice" class="link link-hover">Notice</a>
+          <span class="hidden sm:inline">|</span>
+          <a href="#privacy" class="link link-hover">Privacy Policy</a>
+          <span class="hidden sm:inline">|</span>
+          <a href="#safety" class="link link-hover">Data Safety</a>
+          <span class="hidden sm:inline">|</span>
+          <a href="#disclaimer" class="link link-hover">Disclaimer</a>
+          <span class="hidden sm:inline">|</span>
+          <a href="#last-update" class="link link-hover">Last Update: 10/11/2025</a>
+        </div>
+        <div class="text-xs opacity-80">
+          <p>Copyright © 2025 - All Rights Reserved - Politeknik Kuching Sarawak</p>
         </div>
       </div>
     </footer>
