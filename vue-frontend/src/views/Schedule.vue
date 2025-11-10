@@ -115,23 +115,21 @@
                       <!-- Add button - only for Auditors to add themselves -->
                       <button 
                         v-if="auditor.isEmpty && isAuditor" 
-                        class="btn btn-xs btn-circle btn-success"
+                        class="btn btn-xs btn-circle btn-success text-white font-bold"
                         @click="assignSelfAsAuditor(location.id, index)"
                         title="Assign yourself"
                       >
-                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                        <span class="sr-only">Add</span>
+                        +
                       </button>
                       
                       <!-- Remove button - Auditors can remove themselves, Admin can remove anyone -->
                       <button 
                         v-if="!auditor.isEmpty && (auditor.isCurrentUser || isAdmin)" 
-                        class="btn btn-xs btn-circle btn-error"
+                        class="btn btn-xs btn-circle btn-error text-white font-bold"
                         @click="removeAuditor(location.id, index)"
                         :title="auditor.isCurrentUser ? 'Remove yourself' : 'Remove auditor'"
                       >
-                        <i class="fa-solid fa-minus" aria-hidden="true"></i>
-                        <span class="sr-only">Remove</span>
+                        −
                       </button>
                     </div>
                   </div>
