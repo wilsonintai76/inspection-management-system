@@ -4,6 +4,7 @@
 
 require_once __DIR__ . '/../src/cors.php';
 require_once __DIR__ . '/../src/db.php';
+require_once __DIR__ . '/../src/upload-validator.php';
 require_once __DIR__ . '/../../vendor/autoload.php'; // For PhpSpreadsheet
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -87,6 +88,38 @@ try {
     }
 
     $files = $_FILES['files'];
+    
+    // Prepare file array for validation
+    $fileArray = [];
+    $fileCount = count($files['name']);
+    for ($i = 0; $i < $fileCount; $i++) {
+        $fileArray[] = [
+            'name' => $files['name'][$i],
+            'tmp_name' => $files['tmp_name'][$i],
+            'error' => $files['error'][$i],
+            'size' => $files['size'][$i]
+        ];
+    }
+    
+    // Validate all files
+    $allowedTypes = [
+        'text/csv' => ['csv'],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => ['xlsx'],
+        'application/vnd.ms-excel' => ['xls']
+    ];
+    
+    $validation = UploadValidator::validateMultipleFiles($fileArray, [
+        'allowed_types' => $allowedTypes,
+        'max_size' => 10 * 1024 * 1024, // 10MB per file
+        'max_total_size' => 50 * 1024 * 1024 // 50MB total
+    ]);
+    
+    if (!$validation['valid']) {
+        http_response_code(400);
+        echo json_encode(['error' => $validation['error']]);
+        exit;
+    }
+    
     $allRows = [];
     $errors = [];
     $locationsCreated = 0;

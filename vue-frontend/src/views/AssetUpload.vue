@@ -21,6 +21,7 @@
             <div class="text-sm">
               <ul class="list-disc list-inside space-y-1">
                 <li>Format: Excel (.xlsx, .xls) or CSV</li>
+                <li><strong>File size limit: Max 10MB per file, 50MB total</strong></li>
                 <li>Required columns (exact names): <strong>Label, Jenis Aset, Bahagian, Lokasi Terkini</strong></li>
                 <li>Label = Asset ID (unique, e.g., KPT/PKS/I/08/406)</li>
                 <li>Jenis Aset = Asset Type</li>

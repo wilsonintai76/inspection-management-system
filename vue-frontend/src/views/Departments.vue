@@ -184,7 +184,7 @@
             class="file-input file-input-bordered w-full"
           />
           <p class="text-sm text-base-content/60 mt-2">
-            Select multiple files. Supported: PDF, JPG, PNG, Excel, Word
+            Select multiple files. Supported: PDF, JPG, PNG, Excel, Word. <strong>Max 10MB per file.</strong>
           </p>
           
           <button 
@@ -262,6 +262,7 @@
             <p class="font-semibold mb-2">Setup Departments & Locations:</p>
             <ul class="list-disc list-inside space-y-1">
               <li>Format: Excel (.xlsx, .xls) or CSV</li>
+              <li><strong>File size limit: Max 10MB per file, 50MB total</strong></li>
               <li><strong>Required columns:</strong> Bahagian, Lokasi Terkini</li>
               <li><strong>Optional column:</strong> Pegawai Penempatan (Supervisor - will be stored in Locations)</li>
               <li>Bahagian = Department Name</li>

@@ -12,6 +12,7 @@ if (!is_dir($srcPath) || !file_exists($configPath)) {
 require_once $srcPath . '/cors.php';
 require_once $configPath;
 require_once $srcPath . '/db.php';
+require_once $srcPath . '/upload-validator.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -152,6 +153,7 @@ try {
                             'name' => $_FILES['files']['name'][$i],
                             'tmp_name' => $_FILES['files']['tmp_name'][$i],
                             'error' => $_FILES['files']['error'][$i],
+                            'size' => $_FILES['files']['size'][$i],
                         ];
                     }
                 }
@@ -162,6 +164,7 @@ try {
                         'name' => $_FILES['file']['name'],
                         'tmp_name' => $_FILES['file']['tmp_name'],
                         'error' => $_FILES['file']['error'],
+                        'size' => $_FILES['file']['size'],
                     ];
                 }
             }
@@ -169,6 +172,25 @@ try {
             if (empty($files)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'No valid files to upload']);
+                break;
+            }
+            
+            // Validate all files before processing
+            $allowedTypes = [
+                'text/csv' => ['csv'],
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => ['xlsx'],
+                'application/vnd.ms-excel' => ['xls']
+            ];
+            
+            $validation = UploadValidator::validateMultipleFiles($files, [
+                'allowed_types' => $allowedTypes,
+                'max_size' => 10 * 1024 * 1024, // 10MB per file
+                'max_total_size' => 50 * 1024 * 1024 // 50MB total
+            ]);
+            
+            if (!$validation['valid']) {
+                http_response_code(400);
+                echo json_encode(['error' => $validation['error']]);
                 break;
             }
             
