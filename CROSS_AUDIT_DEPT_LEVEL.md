@@ -172,8 +172,23 @@ If you were using individual auditor assignments:
 
 2. **Run new schema**:
    ```sql
-   -- From schema.sql
-   CREATE TABLE cross_audit_assignments (...);
+   CREATE TABLE IF NOT EXISTS cross_audit_assignments (
+       id INT AUTO_INCREMENT PRIMARY KEY,
+       auditor_department_id INT NOT NULL COMMENT 'Department whose auditors can audit target_department_id',
+       target_department_id INT NOT NULL COMMENT 'Department that can be audited by auditor_department_id',
+       assigned_by_admin_id VARCHAR(191) NOT NULL,
+       notes TEXT,
+       active TINYINT(1) NOT NULL DEFAULT 1,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       FOREIGN KEY (auditor_department_id) REFERENCES departments(id) ON DELETE CASCADE,
+       FOREIGN KEY (target_department_id) REFERENCES departments(id) ON DELETE CASCADE,
+       FOREIGN KEY (assigned_by_admin_id) REFERENCES users(id) ON DELETE CASCADE,
+       UNIQUE KEY unique_dept_assignment (auditor_department_id, target_department_id),
+       INDEX idx_auditor_dept (auditor_department_id),
+       INDEX idx_target_dept (target_department_id),
+       INDEX idx_active (active)
+   );
    ```
 
 3. **Recreate assignments** at department level:
