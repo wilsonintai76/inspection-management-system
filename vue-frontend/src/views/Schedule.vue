@@ -119,7 +119,8 @@
                         @click="assignSelfAsAuditor(location.id, index)"
                         title="Assign yourself"
                       >
-                        <i class="fas fa-plus"></i>
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                        <span class="sr-only">Add</span>
                       </button>
                       
                       <!-- Remove button - Auditors can remove themselves, Admin can remove anyone -->
@@ -129,7 +130,8 @@
                         @click="removeAuditor(location.id, index)"
                         :title="auditor.isCurrentUser ? 'Remove yourself' : 'Remove auditor'"
                       >
-                        <i class="fas fa-minus"></i>
+                        <i class="fa-solid fa-minus" aria-hidden="true"></i>
+                        <span class="sr-only">Remove</span>
                       </button>
                     </div>
                   </div>
