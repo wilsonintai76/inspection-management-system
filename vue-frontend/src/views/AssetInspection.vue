@@ -1,177 +1,225 @@
 <template>
-  <div class="asset-inspection-page">
-    <div class="page-header">
-      <h1>Asset Inspection Summary</h1>
-      <div class="header-actions">
-        <router-link to="/asset-upload" class="btn-upload">
+  <div class="p-6 max-w-7xl mx-auto">
+    <PageHeader 
+      icon="📊" 
+      title="Asset Inspection Summary"
+      subtitle="Track inspection progress and manage asset status"
+    >
+      <template #actions>
+        <router-link to="/asset-upload" class="btn btn-primary">
           📤 Upload New Data
         </router-link>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
-    <div class="filters-section">
-      <div class="filter-group">
-        <label for="department-filter">Department:</label>
-        <select id="department-filter" v-model="selectedDepartment" @change="loadData">
-          <option value="">All Departments</option>
-          <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-            {{ dept.name }}
-          </option>
-        </select>
-      </div>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Department</span>
+            </label>
+            <select id="department-filter" v-model="selectedDepartment" @change="loadData" class="select select-bordered w-full">
+              <option value="">All Departments</option>
+              <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                {{ dept.name }}
+              </option>
+            </select>
+          </div>
 
-      <div class="filter-group">
-        <label for="batch-filter">Upload Batch:</label>
-        <select id="batch-filter" v-model="selectedBatch" @change="loadAssets">
-          <option value="">All Batches</option>
-          <option v-for="batch in batches" :key="batch.id" :value="batch.id">
-            {{ batch.filename }} ({{ formatDate(batch.upload_date) }})
-          </option>
-        </select>
-      </div>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Upload Batch</span>
+            </label>
+            <select id="batch-filter" v-model="selectedBatch" @change="loadAssets" class="select select-bordered w-full">
+              <option value="">All Batches</option>
+              <option v-for="batch in batches" :key="batch.id" :value="batch.id">
+                {{ batch.filename }} ({{ formatDate(batch.upload_date) }})
+              </option>
+            </select>
+          </div>
 
-      <div class="filter-group">
-        <label for="inspected-filter">Status:</label>
-        <select id="inspected-filter" v-model="inspectedFilter" @change="loadAssets">
-          <option value="">All Assets</option>
-          <option value="0">Not Inspected</option>
-          <option value="1">Inspected</option>
-        </select>
-      </div>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Status</span>
+            </label>
+            <select id="inspected-filter" v-model="inspectedFilter" @change="loadAssets" class="select select-bordered w-full">
+              <option value="">All Assets</option>
+              <option value="0">Not Inspected</option>
+              <option value="1">Inspected</option>
+            </select>
+          </div>
 
-      <div class="search-group">
-        <input
-          v-model="searchQuery"
-          @input="debouncedSearch"
-          type="text"
-          placeholder="Search by label, asset type, officer, location..."
-        />
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Search</span>
+            </label>
+            <input
+              v-model="searchQuery"
+              @input="debouncedSearch"
+              type="text"
+              placeholder="Search assets..."
+              class="input input-bordered w-full"
+            />
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Summary Statistics -->
-    <div v-if="loading" class="loading">Loading summary...</div>
-    <div v-else class="summary-section">
-      <h2>Department Summary</h2>
+    <LoadingSpinner v-if="loading" message="Loading summary..." />
+    <div v-else class="mb-8">
+      <h2 class="text-2xl font-semibold text-gray-900 mb-4">Department Summary</h2>
       
       <!-- Overall Stats Card -->
-      <div class="stats-card overall-stats">
-        <h3>Overall Statistics</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value">{{ overallStats.total_assets }}</div>
-            <div class="stat-label">Total Assets</div>
-          </div>
-          <div class="stat-item success">
-            <div class="stat-value">{{ overallStats.assets_inspected }}</div>
-            <div class="stat-label">Inspected</div>
-          </div>
-          <div class="stat-item warning">
-            <div class="stat-value">{{ overallStats.assets_not_inspected }}</div>
-            <div class="stat-label">Not Inspected</div>
-          </div>
-          <div class="stat-item info">
-            <div class="stat-value">{{ overallStats.percentage_inspected }}%</div>
-            <div class="stat-label">Completion Rate</div>
+      <div class="card bg-base-100 shadow-xl mb-6">
+        <div class="card-body">
+          <h3 class="card-title text-lg mb-4">Overall Statistics</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard 
+              icon="📦"
+              title="Total Assets"
+              :value="String(overallStats.total_assets)"
+              description="All uploaded assets"
+            />
+            <StatsCard 
+              icon="✅"
+              title="Inspected"
+              :value="String(overallStats.assets_inspected)"
+              description="Completed inspections"
+              variant="success"
+            />
+            <StatsCard 
+              icon="⚠️"
+              title="Not Inspected"
+              :value="String(overallStats.assets_not_inspected)"
+              description="Pending inspections"
+              variant="warning"
+            />
+            <StatsCard 
+              icon="📈"
+              title="Completion Rate"
+              :value="`${overallStats.percentage_inspected}%`"
+              description="Overall progress"
+              variant="info"
+            />
           </div>
         </div>
       </div>
 
       <!-- Department Table -->
-      <div class="table-wrapper">
-        <table class="summary-table">
-          <thead>
-            <tr>
-              <th>Department</th>
-              <th>Total Assets</th>
-              <th>Inspected</th>
-              <th>Not Inspected</th>
-              <th>Percentage</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in summary" :key="row.department_id">
-              <td><strong>{{ row.department_name }}</strong></td>
-              <td>{{ row.total_assets }}</td>
-              <td class="text-success">{{ row.assets_inspected }}</td>
-              <td class="text-warning">{{ row.assets_not_inspected }}</td>
-              <td>
-                <div class="percentage-cell">
-                  <div class="percentage-bar">
-                    <div 
-                      class="percentage-fill" 
-                      :style="{ width: row.percentage_inspected + '%' }"
-                    ></div>
-                  </div>
-                  <span>{{ row.percentage_inspected }}%</span>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="summary.length === 0">
-              <td colspan="5" class="no-data">No data available</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="overflow-x-auto">
+            <EmptyState 
+              v-if="summary.length === 0"
+              icon="📊"
+              title="No summary data"
+              message="Upload assets to see department statistics"
+            />
+            <table v-else class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th class="text-xs font-semibold uppercase">Department</th>
+                  <th class="text-xs font-semibold uppercase">Total Assets</th>
+                  <th class="text-xs font-semibold uppercase">Inspected</th>
+                  <th class="text-xs font-semibold uppercase">Not Inspected</th>
+                  <th class="text-xs font-semibold uppercase">Percentage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in summary" :key="row.department_id">
+                  <td class="font-semibold">{{ row.department_name }}</td>
+                  <td>{{ row.total_assets }}</td>
+                  <td class="text-success font-semibold">{{ row.assets_inspected }}</td>
+                  <td class="text-warning font-semibold">{{ row.assets_not_inspected }}</td>
+                  <td>
+                    <div class="flex items-center gap-3">
+                      <progress 
+                        class="progress progress-primary w-24" 
+                        :value="row.percentage_inspected" 
+                        max="100"
+                      ></progress>
+                      <span class="font-medium">{{ row.percentage_inspected }}%</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Asset Details List -->
-    <div class="assets-section">
-      <h2>Asset Details</h2>
-      <div v-if="loadingAssets" class="loading">Loading assets...</div>
-      <div v-else class="assets-table-container">
-        <table class="assets-table">
-          <thead>
-            <tr>
-              <th>Asset ID</th>
-              <th>Asset Type</th>
-              <th>Supervisor</th>
-              <th>Department</th>
-              <th>Location</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="asset in assets" :key="asset.id" :class="{ inspected: asset.is_inspected }">
-              <td><strong>{{ asset.label }}</strong></td>
-              <td>{{ asset.jenis_aset }}</td>
-              <td>{{ asset.pegawai_penempatan }}</td>
-              <td>{{ asset.bahagian }}</td>
-              <td>{{ asset.lokasi_terkini }}</td>
-              <td>
-                <span v-if="asset.is_inspected" class="badge badge-success">
-                  ✓ Inspected
-                </span>
-                <span v-else class="badge badge-warning">
-                  ⚠ Not Inspected
-                </span>
-              </td>
-              <td>
-                <button
-                  v-if="!asset.is_inspected"
-                  @click="markAsInspected(asset.id)"
-                  class="btn-mark"
-                  title="Mark as inspected"
-                >
-                  ✓ Mark
-                </button>
-                <button
-                  v-else
-                  @click="markAsNotInspected(asset.id)"
-                  class="btn-unmark"
-                  title="Mark as not inspected"
-                >
-                  ✗ Unmark
-                </button>
-              </td>
-            </tr>
-            <tr v-if="assets.length === 0">
-              <td colspan="7" class="no-data">No assets found</td>
-            </tr>
-          </tbody>
-        </table>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-xl mb-4">Asset Details</h2>
+        
+        <LoadingSpinner v-if="loadingAssets" message="Loading assets..." />
+        <div v-else class="overflow-x-auto">
+          <EmptyState 
+            v-if="assets.length === 0"
+            icon="📦"
+            title="No assets found"
+            message="Try adjusting your filters or upload new data"
+          />
+          <div v-else class="max-h-[600px] overflow-y-auto">
+            <table class="table table-zebra w-full">
+              <thead class="sticky top-0 bg-base-200 z-10">
+                <tr>
+                  <th class="text-xs font-semibold uppercase">Asset ID</th>
+                  <th class="text-xs font-semibold uppercase">Asset Type</th>
+                  <th class="text-xs font-semibold uppercase">Supervisor</th>
+                  <th class="text-xs font-semibold uppercase">Department</th>
+                  <th class="text-xs font-semibold uppercase">Location</th>
+                  <th class="text-xs font-semibold uppercase">Status</th>
+                  <th class="text-xs font-semibold uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="asset in assets" :key="asset.id" :class="{ 'opacity-60': asset.is_inspected }">
+                  <td class="font-semibold">{{ asset.label }}</td>
+                  <td>{{ asset.jenis_aset }}</td>
+                  <td>{{ asset.pegawai_penempatan }}</td>
+                  <td>{{ asset.bahagian }}</td>
+                  <td>{{ asset.lokasi_terkini }}</td>
+                  <td>
+                    <Badge 
+                      v-if="asset.is_inspected"
+                      variant="success"
+                      label="✓ Inspected"
+                    />
+                    <Badge 
+                      v-else
+                      variant="warning"
+                      label="⚠ Not Inspected"
+                    />
+                  </td>
+                  <td>
+                    <button
+                      v-if="!asset.is_inspected"
+                      @click="markAsInspected(asset.id)"
+                      class="btn btn-success btn-sm"
+                      title="Mark as inspected"
+                    >
+                      ✓ Mark
+                    </button>
+                    <button
+                      v-else
+                      @click="markAsNotInspected(asset.id)"
+                      class="btn btn-warning btn-sm"
+                      title="Mark as not inspected"
+                    >
+                      ✗ Unmark
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -180,6 +228,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import api from '../api';
+import { PageHeader, LoadingSpinner, EmptyState, StatsCard, Badge } from '../components';
 
 const loading = ref(false);
 const loadingAssets = ref(false);
@@ -305,305 +354,3 @@ onMounted(async () => {
   await Promise.all([loadDepartments(), loadBatches(), loadData()]);
 });
 </script>
-
-<style scoped>
-.asset-inspection-page {
-  padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.page-header h1 {
-  font-size: 2rem;
-  color: #1f2937;
-  margin: 0;
-}
-
-.btn-upload {
-  padding: 0.75rem 1.5rem;
-  background: var(--teal);
-  color: white;
-  text-decoration: none;
-  border-radius: 6px;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.btn-upload:hover {
-  background: var(--emerald);
-}
-
-.filters-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.filter-group label {
-  font-weight: 600;
-  color: #374151;
-  font-size: 0.9rem;
-}
-
-.filter-group select {
-  padding: 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-
-.search-group {
-  display: flex;
-  align-items: flex-end;
-}
-
-.search-group input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-}
-
-.loading {
-  text-align: center;
-  padding: 3rem;
-  color: #6b7280;
-  font-size: 1.1rem;
-}
-
-.summary-section {
-  margin-bottom: 3rem;
-}
-
-.summary-section h2 {
-  font-size: 1.5rem;
-  color: #1f2937;
-  margin: 0 0 1.5rem 0;
-}
-
-.stats-card {
-  background: white;
-  border-radius: 8px;
-  padding: 2rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-}
-
-.stats-card h3 {
-  margin: 0 0 1.5rem 0;
-  color: #374151;
-  font-size: 1.2rem;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 1.5rem;
-  background: #f9fafb;
-  border-radius: 8px;
-  border-left: 4px solid #6b7280;
-}
-
-.stat-item.success {
-  border-left-color: #10b981;
-}
-
-.stat-item.warning {
-  border-left-color: #f59e0b;
-}
-
-.stat-item.info {
-  border-left-color: var(--teal);
-}
-
-.stat-value {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1f2937;
-  margin-bottom: 0.5rem;
-}
-
-.stat-label {
-  font-size: 0.9rem;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.table-wrapper {
-  overflow-x: auto;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.summary-table,
-.assets-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.summary-table thead,
-.assets-table thead {
-  background: #f9fafb;
-}
-
-.summary-table th,
-.assets-table th {
-  padding: 1rem;
-  text-align: left;
-  font-weight: 600;
-  color: #374151;
-  border-bottom: 2px solid #e5e7eb;
-}
-
-.summary-table td,
-.assets-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #e5e7eb;
-  color: #4b5563;
-}
-
-.summary-table tbody tr:hover,
-.assets-table tbody tr:hover {
-  background: #f9fafb;
-}
-
-.text-success {
-  color: #10b981;
-  font-weight: 600;
-}
-
-.text-warning {
-  color: #f59e0b;
-  font-weight: 600;
-}
-
-.percentage-cell {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.percentage-bar {
-  flex: 1;
-  height: 8px;
-  background: #e5e7eb;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.percentage-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--teal), var(--emerald));
-  transition: width 0.3s ease;
-}
-
-.no-data {
-  text-align: center;
-  color: #6b7280;
-  font-style: italic;
-}
-
-.assets-section {
-  margin-top: 3rem;
-}
-
-.assets-section h2 {
-  font-size: 1.5rem;
-  color: #1f2937;
-  margin: 0 0 1.5rem 0;
-}
-
-.assets-table-container {
-  overflow-x: auto;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  max-height: 600px;
-  overflow-y: auto;
-  position: relative;
-}
-
-.assets-table thead {
-  position: sticky;
-  top: 0;
-  background: #f9fafb;
-  z-index: 10;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.assets-table tr.inspected {
-  opacity: 0.6;
-}
-
-.badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.badge-success {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.badge-warning {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.btn-mark,
-.btn-unmark {
-  padding: 0.4rem 0.8rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-mark {
-  background: #10b981;
-  color: white;
-}
-
-.btn-mark:hover {
-  background: #059669;
-}
-
-.btn-unmark {
-  background: #f59e0b;
-  color: white;
-}
-
-.btn-unmark:hover {
-  background: #d97706;
-}
-</style>
