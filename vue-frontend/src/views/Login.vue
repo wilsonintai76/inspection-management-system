@@ -2,12 +2,12 @@
   <div class="tw-min-h-screen tw-bg-gradient-to-b tw-from-indigo-50 tw-to-white tw-flex tw-flex-col">
     <!-- Top Nav -->
     <header class="tw-sticky tw-top-0 tw-z-20 tw-bg-white tw-border-b tw-border-gray-200 tw-backdrop-blur">
-      <nav class="navbar tw-max-w-7xl tw-mx-auto tw-px-6 tw-h-16">
-        <div class="navbar-start tw-flex tw-items-center tw-gap-3">
+      <nav class="tw-navbar tw-max-w-7xl tw-mx-auto tw-px-6 tw-h-16">
+        <div class="tw-navbar-start tw-flex tw-items-center tw-gap-3">
           <div class="tw-text-2xl">🏢</div>
           <div class="tw-font-extrabold tw-text-gray-900">INSPECTABLE</div>
         </div>
-        <ul class="navbar-end tw-hidden md:tw-flex tw-items-center tw-gap-6 tw-text-sm tw-text-gray-600">
+        <ul class="tw-navbar-end tw-hidden md:tw-flex tw-items-center tw-gap-6 tw-text-sm tw-text-gray-600">
           <li><a href="#features" class="tw-hover:tw-text-gray-900 tw-transition-colors">Features</a></li>
           <li><a href="#about" class="tw-hover:tw-text-gray-900 tw-transition-colors">About</a></li>
           <li><a href="#contact" class="tw-hover:tw-text-gray-900 tw-transition-colors">Contact</a></li>
@@ -47,7 +47,7 @@
         </div>
 
         <!-- Login card -->
-        <div class="card tw-bg-white tw-shadow-xl tw-border tw-border-gray-100 tw-p-8 tw-relative">
+        <div class="tw-card tw-bg-white tw-shadow-xl tw-border tw-border-gray-100 tw-p-8 tw-relative">
           <div class="tw-flex tw-items-center tw-gap-2 tw-mb-4">
             <div class="tw-text-xl">🔐</div>
             <div class="tw-text-sm tw-font-semibold tw-text-gray-500">Secure Access</div>
@@ -71,7 +71,7 @@
                 maxlength="4"
                 pattern="\\d{4}"
                 autocomplete="username"
-                class="input input-bordered tw-mt-1 tw-w-full"
+                class="tw-input tw-input-bordered tw-mt-1 tw-w-full"
               />
             </div>
 
@@ -84,20 +84,20 @@
                 placeholder="••••••••"
                 required
                 autocomplete="current-password"
-                class="input input-bordered tw-mt-1 tw-w-full"
+                class="tw-input tw-input-bordered tw-mt-1 tw-w-full"
               />
             </div>
 
             <div class="tw-flex tw-items-center tw-justify-between">
               <label class="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-gray-700">
-                <input type="checkbox" v-model="rememberMe" class="checkbox checkbox-primary" />
+                <input type="checkbox" v-model="rememberMe" class="tw-checkbox tw-checkbox-primary" />
                 <span>Remember me</span>
               </label>
               <router-link to="/forgot-password" class="tw-text-sm tw-text-indigo-600 hover:tw-text-indigo-700 tw-font-semibold">Forgot password?</router-link>
             </div>
 
             <button type="submit" :disabled="isLoading"
-              class="btn btn-primary tw-w-full tw-inline-flex tw-justify-center tw-items-center tw-gap-2 tw-px-4 tw-py-2.5 tw-transition disabled:tw-opacity-60 disabled:tw-cursor-not-allowed">
+              class="tw-btn tw-btn-primary tw-w-full">
               <span v-if="!isLoading">Sign in</span>
               <span v-else class="tw-inline-flex tw-items-center tw-gap-2">
                 <svg class="tw-animate-spin tw-h-4 tw-w-4 tw-text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -108,7 +108,7 @@
               </span>
             </button>
 
-            <div v-if="error" class="alert alert-error tw-justify-center">
+            <div v-if="error" class="tw-alert tw-alert-error">
               <span>{{ error }}</span>
             </div>
           </form>

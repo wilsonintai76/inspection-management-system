@@ -21,5 +21,6 @@ export default {
   plugins: [daisyui],
   daisyui: {
     themes: ["light", "dark"],
+    prefix: "tw-", // Apply the same prefix to DaisyUI components
   }
 }
