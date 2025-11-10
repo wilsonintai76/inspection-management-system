@@ -151,7 +151,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { api } from '../lib/api'
+import api from '../api'
 
 interface FormData {
   name: string

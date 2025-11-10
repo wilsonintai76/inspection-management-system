@@ -201,29 +201,56 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { api, type Department as DeptType, type Location as LocType, type User as UserType, type Inspection as InspType } from '../lib/api';
+import api from '../api';
 import { useAuth } from '../composables/useAuth';
 import { PageHeader, LoadingSpinner } from '../components';
+
+interface Department {
+  id: number;
+  name: string;
+}
+
+interface Location {
+  id: number;
+  name: string;
+  department_id: number;
+  supervisor?: string;
+  contact_number?: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+}
+
+interface Inspection {
+  id?: number;
+  location_id: number;
+  inspection_date: string;
+  status: string;
+  auditor1_id?: string | null;
+  auditor2_id?: string | null;
+}
 
 const router = useRouter();
 const auth = useAuth();
 
 // Department filter state
-const departments = ref<DeptType[]>([]);
+const departments = ref<Department[]>([]);
 const filterDepartment = ref('');
 
 // Raw data
-const locations = ref<LocType[]>([]);
-const inspections = ref<InspType[]>([]);
-const users = ref<UserType[]>([]);
+const locations = ref<Location[]>([]);
+const inspections = ref<Inspection[]>([]);
+const users = ref<User[]>([]);
 
 // Asset inspection data
 const loadingAssets = ref(false);
 const assetSummary = ref<any[]>([]);
 
 // Derived maps
-const inspectionByLocation = computed<Record<number, InspType>>(() => {
-  const map: Record<number, InspType> = {};
+const inspectionByLocation = computed<Record<number, Inspection>>(() => {
+  const map: Record<number, Inspection> = {};
   // inspections.php returns ordered by date desc; first one per location is latest
   for (const insp of inspections.value) {
     if (!map[insp.location_id]) {
