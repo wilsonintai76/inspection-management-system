@@ -16,6 +16,10 @@
             <p class="text-sm text-base-content/60">Manage application users, roles, and status.</p>
           </div>
           <div class="flex gap-2">
+            <router-link to="/cross-audit" class="btn btn-outline btn-info">
+              <i class="fas fa-exchange-alt"></i>
+              Cross-Audit
+            </router-link>
             <router-link to="/user-import" class="btn btn-outline btn-primary">
               <i class="fas fa-file-upload"></i>
               Bulk Import

@@ -11,6 +11,29 @@ function get_json_body() {
     return is_array($json) ? $json : [];
 }
 
+// Check if auditor can audit a specific department (cross-audit validation)
+function can_audit_department($auditorId, $departmentId, $pdo) {
+    if (!$auditorId || !$departmentId) return true; // If no auditor/dept specified, allow
+    
+    // Check if auditor's own department
+    $stmt = $pdo->prepare('SELECT department_id FROM users WHERE id = ?');
+    $stmt->execute([$auditorId]);
+    $auditor = $stmt->fetch();
+    
+    if ($auditor && $auditor['department_id'] == $departmentId) {
+        return false; // Cannot audit own department
+    }
+    
+    // Check if there's an active cross-audit assignment
+    $stmt = $pdo->prepare('
+        SELECT id FROM cross_audit_assignments 
+        WHERE auditor_id = ? AND assigned_department_id = ? AND active = 1
+    ');
+    $stmt->execute([$auditorId, $departmentId]);
+    
+    return (bool)$stmt->fetch(); // Must have active assignment
+}
+
 try {
     switch ($method) {
         case 'GET':
@@ -33,6 +56,34 @@ try {
             break;
         case 'POST':
             $d = get_json_body();
+            
+            // Get department ID from location
+            $locationId = $d['location_id'] ?? null;
+            if ($locationId) {
+                $stmt = $pdo->prepare('SELECT department_id FROM locations WHERE id = ?');
+                $stmt->execute([$locationId]);
+                $location = $stmt->fetch();
+                $departmentId = $location ? $location['department_id'] : null;
+                
+                // Validate auditors can audit this department
+                if ($departmentId) {
+                    $auditor1 = $d['auditor1_id'] ?? null;
+                    $auditor2 = $d['auditor2_id'] ?? null;
+                    
+                    if ($auditor1 && !can_audit_department($auditor1, $departmentId, $pdo)) {
+                        http_response_code(403);
+                        echo json_encode(['error' => 'Auditor 1 cannot audit this department (no cross-audit assignment or own department)']);
+                        break;
+                    }
+                    
+                    if ($auditor2 && !can_audit_department($auditor2, $departmentId, $pdo)) {
+                        http_response_code(403);
+                        echo json_encode(['error' => 'Auditor 2 cannot audit this department (no cross-audit assignment or own department)']);
+                        break;
+                    }
+                }
+            }
+            
             $stmt = $pdo->prepare('INSERT INTO inspections (location_id, inspection_date, status, auditor1_id, auditor2_id) VALUES (?, ?, ?, ?, ?)');
             $stmt->execute([
                 $d['location_id'] ?? null,
@@ -46,6 +97,34 @@ try {
         case 'PUT':
             if (!isset($_GET['id'])) { http_response_code(400); echo json_encode(['error' => 'Missing id']); break; }
             $d = get_json_body();
+            
+            // Get department ID from location
+            $locationId = $d['location_id'] ?? null;
+            if ($locationId) {
+                $stmt = $pdo->prepare('SELECT department_id FROM locations WHERE id = ?');
+                $stmt->execute([$locationId]);
+                $location = $stmt->fetch();
+                $departmentId = $location ? $location['department_id'] : null;
+                
+                // Validate auditors can audit this department
+                if ($departmentId) {
+                    $auditor1 = $d['auditor1_id'] ?? null;
+                    $auditor2 = $d['auditor2_id'] ?? null;
+                    
+                    if ($auditor1 && !can_audit_department($auditor1, $departmentId, $pdo)) {
+                        http_response_code(403);
+                        echo json_encode(['error' => 'Auditor 1 cannot audit this department (no cross-audit assignment or own department)']);
+                        break;
+                    }
+                    
+                    if ($auditor2 && !can_audit_department($auditor2, $departmentId, $pdo)) {
+                        http_response_code(403);
+                        echo json_encode(['error' => 'Auditor 2 cannot audit this department (no cross-audit assignment or own department)']);
+                        break;
+                    }
+                }
+            }
+            
             $stmt = $pdo->prepare('UPDATE inspections SET location_id = ?, inspection_date = ?, status = ?, auditor1_id = ?, auditor2_id = ? WHERE id = ?');
             $stmt->execute([
                 $d['location_id'] ?? null,

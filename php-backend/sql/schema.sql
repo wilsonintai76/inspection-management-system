@@ -63,3 +63,24 @@ CREATE TABLE IF NOT EXISTS inspections (
     FOREIGN KEY (auditor2_id) REFERENCES users(id) ON DELETE SET NULL,
     CHECK (auditor1_id IS NULL OR auditor2_id IS NULL OR auditor1_id != auditor2_id)
 );
+
+-- Cross-department audit assignments
+-- Admin assigns auditors to audit specific departments (not their own)
+CREATE TABLE IF NOT EXISTS cross_audit_assignments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    auditor_id VARCHAR(191) NOT NULL,
+    assigned_department_id INT NOT NULL,
+    assigned_by_admin_id VARCHAR(191) NOT NULL,
+    notes TEXT,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (auditor_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_department_id) REFERENCES departments(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_by_admin_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_assignment (auditor_id, assigned_department_id),
+    INDEX idx_auditor (auditor_id),
+    INDEX idx_department (assigned_department_id),
+    INDEX idx_active (active)
+);
+
