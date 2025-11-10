@@ -1,32 +1,39 @@
 <template>
-  <div class="dashboard-page">
-    <div class="page-header">
-      <div class="breadcrumb">
-        <span class="breadcrumb-icon">📋</span>
-        <h1 class="page-title">Overview</h1>
-      </div>
-      <div class="header-right">
-        <!-- Department Filter - All users can filter -->
-        <select v-model="filterDepartment" class="department-filter">
-          <option value="">All Departments</option>
-          <option v-for="dept in departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
-        </select>
-      </div>
+  <div class="min-h-screen bg-base-200 p-6">
+    <!-- Page Header with Filter -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <PageHeader
+        icon="fas fa-chart-line"
+        title="Overview"
+        subtitle="Dashboard with inspection schedules and progress"
+      />
+      <select 
+        v-model="filterDepartment" 
+        class="select select-bordered select-sm md:w-64"
+      >
+        <option value="">All Departments</option>
+        <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+          {{ dept.name }}
+        </option>
+      </select>
     </div>
 
-    <div class="dashboard-content">
-      <!-- Inspection Schedule Section -->
-      <section class="schedule-section">
-        <h2 class="section-title">Inspection Schedule</h2>
-        <div class="table-container">
-          <table class="schedule-table">
+    <!-- Inspection Schedule Section -->
+    <div class="card bg-base-100 shadow-md mb-6">
+      <div class="card-body">
+        <h2 class="card-title text-lg mb-4">
+          <i class="fas fa-calendar-check text-primary"></i>
+          Inspection Schedule
+        </h2>
+        <div class="overflow-x-auto">
+          <table class="table table-zebra">
             <thead>
               <tr>
-                <th class="sortable">
-                  Location <span class="sort-icon">⇅</span>
+                <th class="cursor-pointer hover:bg-base-200">
+                  Location <span class="ml-1 text-xs">⇅</span>
                 </th>
-                <th class="sortable">
-                  Date <span class="sort-icon">⇅</span>
+                <th class="cursor-pointer hover:bg-base-200">
+                  Date <span class="ml-1 text-xs">⇅</span>
                 </th>
                 <th>Auditors</th>
               </tr>
@@ -34,102 +41,118 @@
             <tbody>
               <tr v-for="row in scheduleRows" :key="row.id">
                 <td>
-                  <div class="location-cell">
-                    <div class="location-name">{{ row.locationName }}</div>
-                    <div class="location-meta">
-                      <span class="location-supervisor">{{ row.supervisor || '—' }}</span>
-                      <span class="location-contact">{{ row.contact || '—' }}</span>
+                  <div class="flex flex-col gap-1">
+                    <div class="font-semibold">{{ row.locationName }}</div>
+                    <div class="flex gap-4 text-sm text-base-content/60">
+                      <span>{{ row.supervisor || '—' }}</span>
+                      <span>{{ row.contact || '—' }}</span>
                     </div>
                   </div>
                 </td>
                 <td>
-                  <div class="date-cell">
-                    <span class="date-icon">📅</span>
+                  <div class="flex items-center gap-2">
+                    <span>📅</span>
                     {{ row.date ? formatDate(row.date) : '—' }}
                   </div>
                 </td>
                 <td>
-                  <div class="auditors-cell">
-                    <div v-for="(auditor, idx) in row.auditors" :key="idx" class="auditor-row">
-                      <span class="auditor-icon">{{ auditor.assigned ? '👤' : '🔹' }}</span>
-                      <span :class="{ 'auditor-unassigned': !auditor.assigned }">
+                  <div class="flex flex-col gap-2">
+                    <div 
+                      v-for="(auditor, idx) in row.auditors" 
+                      :key="idx" 
+                      class="flex items-center gap-2 text-sm"
+                    >
+                      <span>{{ auditor.assigned ? '👤' : '🔹' }}</span>
+                      <span :class="{ 'text-base-content/40': !auditor.assigned }">
                         {{ auditor.name }}
                       </span>
-                      <span v-if="auditor.id" class="auditor-id">{{ auditor.id }}</span>
+                      <span v-if="auditor.id" class="text-xs text-base-content/50">{{ auditor.id }}</span>
                     </div>
                   </div>
                 </td>
               </tr>
               <tr v-if="scheduleRows.length === 0">
-                <td colspan="3" class="text-center text-muted">No locations found</td>
+                <td colspan="3" class="text-center text-base-content/50">No locations found</td>
               </tr>
             </tbody>
           </table>
         </div>
-      </section>
+      </div>
+    </div>
 
-      <!-- Analysis Row -->
-      <div class="analysis-row">
-        <!-- Auditor Analysis -->
-        <section class="analysis-card">
-          <h2 class="section-title">Auditor Analysis</h2>
-          <p class="section-subtitle">Number of locations each auditor is assigned to.</p>
-          <div class="table-container">
-            <table class="simple-table">
-              <thead>
-                <tr>
-                  <th>Auditor Name</th>
-                  <th class="text-right">No. of Locations</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="auditor in auditorStats" :key="auditor.name">
-                  <td>{{ auditor.name }}</td>
-                  <td class="text-right">{{ auditor.count }}</td>
-                </tr>
-                <tr v-if="auditorStats.length === 0">
-                  <td colspan="2" class="text-center text-muted">No data available</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Inspection Status -->
-        <section class="analysis-card">
-          <h2 class="section-title">Location Inspection Status</h2>
-          <p class="section-subtitle">Department inspection progress.</p>
-          <div class="status-list-container">
-            <div class="status-list">
-              <div v-for="dept in departmentProgress" :key="dept.name" class="status-item">
-                <div class="status-header">
-                  <span class="status-name">{{ dept.name }}</span>
-                  <span class="status-count">{{ dept.completed }} / {{ dept.total }}</span>
-                </div>
-                <div class="status-bar">
-                  <div class="status-fill" :style="{ width: dept.percentage + '%' }"></div>
-                </div>
-              </div>
-              <div v-if="departmentProgress.length === 0" class="text-center text-muted">
-                No inspection data
-              </div>
-            </div>
-          </div>
-        </section>
+    <!-- Analysis Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Auditor Analysis -->
+      <div class="card bg-base-100 shadow-md">
+        <div class="card-body">
+          <h3 class="card-title text-lg mb-2">
+            <i class="fas fa-user-friends text-primary"></i>
+            Auditor Analysis
+          </h3>
+          <p class="text-sm text-base-content/60 mb-4">Number of locations each auditor is assigned to.</p>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Auditor Name</th>
+                <th class="text-right">No. of Locations</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="auditor in auditorStats" :key="auditor.name">
+                <td>{{ auditor.name }}</td>
+                <td class="text-right font-semibold">{{ auditor.count }}</td>
+              </tr>
+              <tr v-if="auditorStats.length === 0">
+                <td colspan="2" class="text-center text-base-content/50">No data available</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Asset Inspection Progress Section -->
-      <section class="asset-progress-section">
-        <h2 class="section-title">Asset Inspection Progress</h2>
-        <p class="section-subtitle">Department asset inspection completion status.</p>
-        
-        <div v-if="loadingAssets" class="loading-state">
-          <div class="spinner"></div>
-          <p>Loading asset data...</p>
+      <!-- Inspection Status -->
+      <div class="card bg-base-100 shadow-md">
+        <div class="card-body">
+          <h3 class="card-title text-lg mb-2">
+            <i class="fas fa-map-marked-alt text-primary"></i>
+            Location Inspection Status
+          </h3>
+          <p class="text-sm text-base-content/60 mb-4">Department inspection progress.</p>
+          <div class="max-h-96 overflow-y-auto pr-2 space-y-4">
+            <div v-for="dept in departmentProgress" :key="dept.name" class="space-y-2">
+              <div class="flex justify-between items-center">
+                <span class="font-medium text-sm">{{ dept.name }}</span>
+                <span class="text-sm font-semibold text-base-content/70">
+                  {{ dept.completed }} / {{ dept.total }}
+                </span>
+              </div>
+              <progress 
+                class="progress progress-primary w-full" 
+                :value="dept.percentage" 
+                max="100"
+              ></progress>
+            </div>
+            <div v-if="departmentProgress.length === 0" class="text-center text-base-content/50 py-8">
+              No inspection data
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
 
-        <div v-else class="asset-table-wrapper">
-          <table class="asset-progress-table">
+    <!-- Asset Inspection Progress Section -->
+    <div class="card bg-base-100 shadow-md">
+      <div class="card-body">
+        <h2 class="card-title text-lg mb-2">
+          <i class="fas fa-tasks text-primary"></i>
+          Asset Inspection Progress
+        </h2>
+        <p class="text-sm text-base-content/60 mb-4">Department asset inspection completion status.</p>
+        
+        <LoadingSpinner v-if="loadingAssets" message="Loading asset data..." />
+
+        <div v-else class="overflow-x-auto">
+          <table class="table table-zebra">
             <thead>
               <tr>
                 <th>Department</th>
@@ -141,29 +164,30 @@
             </thead>
             <tbody>
               <tr v-for="row in assetSummary" :key="row.department_id">
-                <td><strong>{{ row.department_name }}</strong></td>
+                <td class="font-semibold">{{ row.department_name }}</td>
                 <td>{{ row.total_assets }}</td>
-                <td class="text-success">{{ row.assets_inspected }}</td>
-                <td class="text-warning">{{ row.assets_not_inspected }}</td>
+                <td class="text-success font-semibold">{{ row.assets_inspected }}</td>
+                <td class="text-warning font-semibold">{{ row.assets_not_inspected }}</td>
                 <td>
-                  <div class="percentage-cell">
-                    <div class="percentage-bar">
-                      <div 
-                        class="percentage-fill" 
-                        :style="{ width: row.percentage_inspected + '%' }"
-                      ></div>
-                    </div>
-                    <span class="percentage-text">{{ row.percentage_inspected }}%</span>
+                  <div class="flex items-center gap-3">
+                    <progress 
+                      class="progress progress-primary w-full max-w-xs" 
+                      :value="row.percentage_inspected" 
+                      max="100"
+                    ></progress>
+                    <span class="font-semibold text-sm min-w-[3rem] text-right">
+                      {{ row.percentage_inspected }}%
+                    </span>
                   </div>
                 </td>
               </tr>
               <tr v-if="assetSummary.length === 0">
-                <td colspan="5" class="text-center text-muted">No asset data available</td>
+                <td colspan="5" class="text-center text-base-content/50">No asset data available</td>
               </tr>
             </tbody>
           </table>
         </div>
-      </section>
+      </div>
     </div>
   </div>
 </template>
@@ -173,6 +197,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, type Department as DeptType, type Location as LocType, type User as UserType, type Inspection as InspType } from '../lib/api';
 import { useAuth } from '../composables/useAuth';
+import { PageHeader, LoadingSpinner } from '../components';
 
 const router = useRouter();
 const auth = useAuth();
@@ -345,472 +370,3 @@ watch(filterDepartment, () => {
   loadAssetSummary();
 });
 </script>
-
-<style scoped>
-.dashboard-page {
-  background: #f9fafb;
-  min-height: 100vh;
-}
-
-.page-header {
-  background: white;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.breadcrumb-icon {
-  font-size: 1.25rem;
-}
-
-.page-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.btn-logout {
-  padding: 0.5rem 1rem;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  color: #ef4444;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-logout:hover {
-  background: #fef2f2;
-  border-color: #fecaca;
-}
-
-.dashboard-content {
-  padding: 2rem;
-}
-
-.department-filter {
-  padding: 0.5rem 2.5rem 0.5rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  color: #374151;
-  background: white;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  margin-right: 1rem;
-}
-
-.section-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0 0 0.5rem 0;
-}
-
-.section-subtitle {
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin: 0 0 1.5rem 0;
-}
-
-/* Schedule Section */
-.schedule-section {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.table-container {
-  overflow-x: auto;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.schedule-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.schedule-table thead {
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.schedule-table th {
-  text-align: left;
-  padding: 0.75rem 1rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.schedule-table th.sortable {
-  cursor: pointer;
-}
-
-.sort-icon {
-  margin-left: 0.25rem;
-  font-size: 0.75rem;
-  color: #9ca3af;
-}
-
-.schedule-table tbody tr {
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.schedule-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.schedule-table td {
-  padding: 1rem;
-}
-
-.location-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.location-name {
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.location-meta {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.date-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #1f2937;
-}
-
-.date-icon {
-  color: var(--teal);
-}
-
-.auditors-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.auditor-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.auditor-icon {
-  font-size: 1rem;
-}
-
-.auditor-unassigned {
-  color: #9ca3af;
-}
-
-.auditor-id {
-  color: #6b7280;
-  font-size: 0.8rem;
-}
-
-/* Analysis Row */
-.analysis-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.analysis-card {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.simple-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.simple-table thead {
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.simple-table th {
-  text-align: left;
-  padding: 0.75rem 0;
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.simple-table th.text-right {
-  text-align: right;
-}
-
-.simple-table tbody tr {
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.simple-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.simple-table td {
-  padding: 0.75rem 0;
-  color: #1f2937;
-}
-
-.simple-table td.text-right {
-  text-align: right;
-}
-
-.simple-table td.text-center {
-  text-align: center;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.text-muted {
-  color: #9ca3af;
-}
-
-/* Status List */
-.status-list-container {
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-
-.status-list-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-.status-list-container::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 3px;
-}
-
-.status-list-container::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-
-.status-list-container::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-.status-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.status-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.status-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.status-name {
-  font-weight: 500;
-  color: #1f2937;
-  font-size: 0.9rem;
-}
-
-.status-count {
-  font-size: 0.875rem;
-  color: #6b7280;
-  font-weight: 600;
-}
-
-.status-bar {
-  height: 8px;
-  background: #e5e7eb;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.status-fill {
-  height: 100%;
-  background: var(--teal);
-  transition: width 0.3s ease;
-  border-radius: 4px;
-}
-
-/* Asset Inspection Progress Section */
-.asset-progress-section {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-top: 2rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.asset-table-wrapper {
-  max-height: 500px;
-  overflow-y: auto;
-  overflow-x: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-}
-
-.asset-table-wrapper::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.asset-table-wrapper::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 4px;
-}
-
-.asset-table-wrapper::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-.asset-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-.asset-progress-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.asset-progress-table thead {
-  background: #f9fafb;
-  border-bottom: 2px solid #e5e7eb;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.asset-progress-table th {
-  padding: 0.875rem 1rem;
-  text-align: left;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #374151;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
-}
-
-.asset-progress-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #f3f4f6;
-  font-size: 0.9rem;
-  color: #1f2937;
-}
-
-.asset-progress-table tbody tr:hover {
-  background: #f9fafb;
-}
-
-.asset-progress-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.percentage-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.percentage-bar {
-  flex: 1;
-  height: 20px;
-  background: #e5e7eb;
-  border-radius: 10px;
-  overflow: hidden;
-  min-width: 100px;
-}
-
-.percentage-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--teal) 0%, var(--emerald) 100%);
-  transition: width 0.3s ease;
-  border-radius: 10px;
-}
-
-.percentage-text {
-  font-weight: 600;
-  color: #374151;
-  min-width: 45px;
-  text-align: right;
-}
-
-.text-success {
-  color: #059669;
-  font-weight: 600;
-}
-
-.text-warning {
-  color: #d97706;
-  font-weight: 600;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
-  color: #6b7280;
-}
-
-.spinner {
-  border: 3px solid #f3f4f6;
-  border-top: 3px solid var(--teal);
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@media (max-width: 1024px) {
-  .analysis-row {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
