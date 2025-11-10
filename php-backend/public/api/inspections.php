@@ -15,23 +15,31 @@ function get_json_body() {
 function can_audit_department($auditorId, $departmentId, $pdo) {
     if (!$auditorId || !$departmentId) return true; // If no auditor/dept specified, allow
     
-    // Check if auditor's own department
+    // Get auditor's own department
     $stmt = $pdo->prepare('SELECT department_id FROM users WHERE id = ?');
     $stmt->execute([$auditorId]);
     $auditor = $stmt->fetch();
     
-    if ($auditor && $auditor['department_id'] == $departmentId) {
-        return false; // Cannot audit own department
+    if (!$auditor) {
+        return false; // Auditor not found
     }
     
-    // Check if there's an active cross-audit assignment
+    $auditorDeptId = $auditor['department_id'];
+    
+    // Cannot audit own department (conflict of interest)
+    if ($auditorDeptId == $departmentId) {
+        return false;
+    }
+    
+    // Check if there's an active department-to-department assignment
+    // Auditor's department must be assigned to audit the target department
     $stmt = $pdo->prepare('
         SELECT id FROM cross_audit_assignments 
-        WHERE auditor_id = ? AND assigned_department_id = ? AND active = 1
+        WHERE auditor_department_id = ? AND target_department_id = ? AND active = 1
     ');
-    $stmt->execute([$auditorId, $departmentId]);
+    $stmt->execute([$auditorDeptId, $departmentId]);
     
-    return (bool)$stmt->fetch(); // Must have active assignment
+    return (bool)$stmt->fetch(); // Must have active department assignment
 }
 
 try {

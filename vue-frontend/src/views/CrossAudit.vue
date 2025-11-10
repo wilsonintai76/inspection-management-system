@@ -3,11 +3,11 @@
     <PageHeader 
       icon="🔀" 
       title="Cross-Department Audit Management"
-      subtitle="Assign auditors to audit departments they don't belong to (ensures audit independence)"
+      subtitle="Assign departments to audit other departments (ensures all auditors from Dept A can audit Dept B)"
     >
       <template #actions>
         <button @click="showAssignModal = true" class="btn btn-primary">
-          + Assign Auditor to Department
+          + Create Department Assignment
         </button>
       </template>
     </PageHeader>
@@ -18,9 +18,9 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
       </svg>
       <div>
-        <div class="font-semibold">Why Cross-Department Auditing?</div>
+        <div class="font-semibold">How It Works</div>
         <div class="text-sm mt-1">
-          Auditors should NOT audit their own department (conflict of interest). Cross-audit assignments ensure independence and objectivity by assigning auditors to check other departments.
+          Departments cannot audit themselves (conflict of interest). This system assigns <strong>all auditors from Department A</strong> to audit <strong>Department B</strong>. No need to assign individual auditors - the assignment applies to everyone from that department with the Auditor role.
         </div>
       </div>
     </div>
@@ -34,7 +34,7 @@
     <div v-else class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <div class="flex justify-between items-center mb-4">
-          <h2 class="card-title">Current Assignments ({{ assignments.length }})</h2>
+          <h2 class="card-title">Department Cross-Audit Assignments ({{ assignments.length }})</h2>
           <div class="form-control">
             <label class="label cursor-pointer gap-2">
               <span class="label-text">Show Inactive</span>
@@ -50,44 +50,40 @@
         <div v-if="assignments.length === 0" class="text-center py-8 text-gray-500">
           <div class="text-6xl mb-4">🔀</div>
           <div class="text-lg font-medium">No cross-audit assignments yet</div>
-          <div class="text-sm mt-2">Click "Assign Auditor to Department" to create the first assignment</div>
+          <div class="text-sm mt-2">Click "Create Department Assignment" to set up department-level auditing</div>
         </div>
 
         <div v-else class="overflow-x-auto">
           <table class="table table-zebra">
             <thead>
               <tr>
-                <th>Auditor</th>
-                <th>Own Dept</th>
+                <th>Auditor Department</th>
                 <th>→</th>
-                <th>Assigned to Audit</th>
+                <th>Target Department (Can Audit)</th>
                 <th>Assigned By</th>
+                <th>Notes</th>
                 <th>Status</th>
-                <th>Date</th>
+                <th>Created</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="assignment in filteredAssignments" :key="assignment.id">
                 <td>
-                  <div class="font-medium">{{ assignment.auditor_name }}</div>
-                  <div class="text-xs text-gray-500">{{ assignment.auditor_staff_id }}</div>
+                  <div class="font-medium">{{ assignment.auditor_department_name }}</div>
+                  <div class="text-xs text-gray-500">{{ assignment.auditor_department_acronym }}</div>
                 </td>
                 <td>
-                  <div class="badge badge-ghost badge-sm">
-                    {{ assignment.auditor_own_department_name || 'No Dept' }}
-                  </div>
-                </td>
-                <td>
-                  <span class="text-2xl">→</span>
+                  <span class="text-2xl text-primary">→</span>
                 </td>
                 <td>
                   <div class="font-medium text-primary">
-                    {{ assignment.assigned_department_name }}
+                    {{ assignment.target_department_name }}
                   </div>
-                  <div class="text-xs text-gray-500">{{ assignment.assigned_department_acronym }}</div>
+                  <div class="text-xs text-gray-500">{{ assignment.target_department_acronym }}</div>
                 </td>
                 <td class="text-sm">{{ assignment.assigned_by_name }}</td>
+                <td class="text-sm max-w-xs truncate">{{ assignment.notes || '-' }}</td>
                 <td>
                   <div class="badge" :class="assignment.active ? 'badge-success' : 'badge-error'">
                     {{ assignment.active ? 'Active' : 'Inactive' }}
@@ -98,32 +94,29 @@
                 </td>
                 <td>
                   <div class="flex gap-1">
+                    <!-- Toggle Active/Inactive -->
                     <button 
-                      v-if="assignment.active"
-                      @click="deactivateAssignment(assignment.id)"
-                      class="btn btn-ghost btn-xs text-warning"
-                      title="Deactivate"
+                      @click="toggleActive(assignment)" 
+                      :class="assignment.active ? 'btn-warning' : 'btn-success'"
+                      class="btn btn-xs"
+                      :title="assignment.active ? 'Deactivate' : 'Activate'"
                     >
-                      ⏸️
+                      {{ assignment.active ? '⏸️' : '▶️' }}
                     </button>
+                    
+                    <!-- Edit Notes -->
                     <button 
-                      v-else
-                      @click="activateAssignment(assignment.id)"
-                      class="btn btn-ghost btn-xs text-success"
-                      title="Activate"
-                    >
-                      ▶️
-                    </button>
-                    <button 
-                      @click="editNotes(assignment)"
-                      class="btn btn-ghost btn-xs"
+                      @click="openEditNotes(assignment)" 
+                      class="btn btn-xs btn-info"
                       title="Edit Notes"
                     >
                       📝
                     </button>
+                    
+                    <!-- Delete -->
                     <button 
-                      @click="deleteAssignment(assignment.id)"
-                      class="btn btn-ghost btn-xs text-error"
+                      @click="deleteAssignment(assignment)" 
+                      class="btn btn-xs btn-error"
                       title="Delete"
                     >
                       🗑️
@@ -137,82 +130,92 @@
       </div>
     </div>
 
-    <!-- Assignment Modal -->
-    <dialog :class="{'modal modal-open': showAssignModal}" class="modal">
-      <div class="modal-box max-w-2xl">
-        <h3 class="font-bold text-lg mb-4">Assign Auditor to Department</h3>
+    <!-- Create Assignment Modal -->
+    <div v-if="showAssignModal" class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Create Cross-Audit Assignment</h3>
         
         <div class="form-control mb-4">
           <label class="label">
-            <span class="label-text font-medium">Select Auditor</span>
+            <span class="label-text">Auditor Department (FROM)</span>
           </label>
-          <select v-model="newAssignment.auditorId" class="select select-bordered w-full">
-            <option value="">-- Choose Auditor --</option>
-            <option v-for="auditor in auditors" :key="auditor.id" :value="auditor.id">
-              {{ auditor.name }} ({{ auditor.staff_id }}) - {{ auditor.department_name || 'No Dept' }}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text font-medium">Assign to Department</span>
-          </label>
-          <select v-model="newAssignment.departmentId" class="select select-bordered w-full">
-            <option value="">-- Choose Department --</option>
+          <select v-model="newAssignment.auditorDeptId" class="select select-bordered">
+            <option value="">Select department...</option>
             <option 
-              v-for="dept in availableDepartments" 
+              v-for="dept in departments" 
               :key="dept.id" 
               :value="dept.id"
-              :disabled="isOwnDepartment(dept.id)"
+              :disabled="dept.id === newAssignment.targetDeptId"
             >
-              {{ dept.name }} {{ isOwnDepartment(dept.id) ? '(Own Dept - Not Allowed)' : '' }}
+              {{ dept.name }} ({{ dept.acronym }})
             </option>
           </select>
           <label class="label">
-            <span class="label-text-alt text-info">Auditor cannot audit their own department</span>
+            <span class="label-text-alt">All auditors from this department can audit the target</span>
           </label>
         </div>
 
         <div class="form-control mb-4">
           <label class="label">
-            <span class="label-text font-medium">Notes (Optional)</span>
+            <span class="label-text">Target Department (TO AUDIT)</span>
+          </label>
+          <select v-model="newAssignment.targetDeptId" class="select select-bordered">
+            <option value="">Select department...</option>
+            <option 
+              v-for="dept in departments" 
+              :key="dept.id" 
+              :value="dept.id"
+              :disabled="dept.id === newAssignment.auditorDeptId"
+            >
+              {{ dept.name }} ({{ dept.acronym }})
+            </option>
+          </select>
+          <label class="label">
+            <span class="label-text-alt">Department that will be audited</span>
+          </label>
+        </div>
+
+        <!-- Validation Warning -->
+        <div v-if="isSameDepartment" class="alert alert-error mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Departments cannot audit themselves!</span>
+        </div>
+
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text">Notes (Optional)</span>
           </label>
           <textarea 
             v-model="newAssignment.notes" 
             class="textarea textarea-bordered" 
             rows="3"
-            placeholder="Any special instructions or notes..."
+            placeholder="Add any notes about this assignment..."
           ></textarea>
         </div>
 
-        <div v-if="assignError" class="alert alert-error mb-4">
-          <span>{{ assignError }}</span>
-        </div>
-
         <div class="modal-action">
-          <button @click="closeAssignModal" class="btn btn-ghost">Cancel</button>
+          <button @click="showAssignModal = false" class="btn">Cancel</button>
           <button 
             @click="createAssignment" 
-            class="btn btn-primary"
-            :disabled="!newAssignment.auditorId || !newAssignment.departmentId || assigning"
+            class="btn btn-primary" 
+            :disabled="!canCreate || creating"
           >
-            <span v-if="assigning" class="loading loading-spinner"></span>
-            {{ assigning ? 'Assigning...' : 'Assign' }}
+            {{ creating ? 'Creating...' : 'Create Assignment' }}
           </button>
         </div>
       </div>
-      <form method="dialog" class="modal-backdrop" @click="closeAssignModal"></form>
-    </dialog>
+    </div>
 
     <!-- Edit Notes Modal -->
-    <dialog :class="{'modal modal-open': showNotesModal}" class="modal">
+    <div v-if="showEditNotesModal" class="modal modal-open">
       <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Edit Assignment Notes</h3>
+        <h3 class="font-bold text-lg mb-4">Edit Notes</h3>
         
         <div class="form-control mb-4">
           <label class="label">
-            <span class="label-text font-medium">Notes</span>
+            <span class="label-text">Notes</span>
           </label>
           <textarea 
             v-model="editingNotes" 
@@ -222,187 +225,186 @@
         </div>
 
         <div class="modal-action">
-          <button @click="showNotesModal = false" class="btn btn-ghost">Cancel</button>
-          <button @click="updateNotes" class="btn btn-primary">Save</button>
+          <button @click="showEditNotesModal = false" class="btn">Cancel</button>
+          <button 
+            @click="saveNotes" 
+            class="btn btn-primary"
+            :disabled="saving"
+          >
+            {{ saving ? 'Saving...' : 'Save' }}
+          </button>
         </div>
       </div>
-      <form method="dialog" class="modal-backdrop" @click="showNotesModal = false"></form>
-    </dialog>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import api from '../api';
-import { PageHeader, LoadingSpinner } from '../components';
+import { useAuthStore } from '../stores/auth';
+import api from '../lib/api';
+import PageHeader from '../components/PageHeader.vue';
+import LoadingSpinner from '../components/LoadingSpinner.vue';
+
+const authStore = useAuthStore();
 
 const loading = ref(true);
-const assignments = ref<any[]>([]);
-const auditors = ref<any[]>([]);
-const departments = ref<any[]>([]);
+const creating = ref(false);
+const saving = ref(false);
 const showInactive = ref(false);
 const showAssignModal = ref(false);
-const showNotesModal = ref(false);
-const assigning = ref(false);
-const assignError = ref('');
-const editingAssignment = ref<any>(null);
-const editingNotes = ref('');
+const showEditNotesModal = ref(false);
+
+const assignments = ref<any[]>([]);
+const departments = ref<any[]>([]);
 
 const newAssignment = ref({
-  auditorId: '',
-  departmentId: '',
+  auditorDeptId: '',
+  targetDeptId: '',
   notes: ''
 });
 
-const userId = sessionStorage.getItem('userId');
+const editingAssignment = ref<any>(null);
+const editingNotes = ref('');
 
 const filteredAssignments = computed(() => {
-  if (showInactive.value) {
-    return assignments.value;
+  return showInactive.value 
+    ? assignments.value 
+    : assignments.value.filter(a => a.active);
+});
+
+const isSameDepartment = computed(() => {
+  return newAssignment.value.auditorDeptId && 
+         newAssignment.value.targetDeptId && 
+         newAssignment.value.auditorDeptId === newAssignment.value.targetDeptId;
+});
+
+const canCreate = computed(() => {
+  return newAssignment.value.auditorDeptId && 
+         newAssignment.value.targetDeptId && 
+         !isSameDepartment.value;
+});
+
+onMounted(async () => {
+  await Promise.all([
+    loadAssignments(),
+    loadDepartments()
+  ]);
+  loading.value = false;
+});
+
+async function loadAssignments() {
+  try {
+    const response = await api.get('/cross-audit.php', {
+      params: { user_id: authStore.user?.id }
+    });
+    assignments.value = response.data.assignments || [];
+  } catch (error: any) {
+    console.error('Failed to load assignments:', error);
+    alert('Error loading assignments: ' + (error.response?.data?.error || error.message));
   }
-  return assignments.value.filter(a => a.active);
-});
-
-const availableDepartments = computed(() => {
-  return departments.value;
-});
-
-function isOwnDepartment(deptId: number): boolean {
-  if (!newAssignment.value.auditorId) return false;
-  const auditor = auditors.value.find(a => a.id === newAssignment.value.auditorId);
-  return auditor && auditor.department_id === deptId;
 }
 
-async function fetchData() {
-  loading.value = true;
+async function loadDepartments() {
   try {
-    // Fetch assignments
-    const assignmentsRes = await api.get(`/cross-audit.php?user_id=${userId}`);
-    assignments.value = assignmentsRes.data.assignments || [];
-
-    // Fetch auditors
-    const auditorsRes = await api.get('/users.php');
-    const allUsers = auditorsRes.data.users || [];
-    auditors.value = allUsers.filter((u: any) => 
-      u.roles && u.roles.includes('Auditor')
-    );
-
-    // Fetch departments
-    const deptsRes = await api.get('/departments.php');
-    departments.value = deptsRes.data.departments || [];
-  } catch (err: any) {
-    console.error('Failed to fetch data:', err);
-  } finally {
-    loading.value = false;
+    const response = await api.get('/departments.php');
+    departments.value = response.data;
+  } catch (error: any) {
+    console.error('Failed to load departments:', error);
   }
 }
 
 async function createAssignment() {
-  if (!newAssignment.value.auditorId || !newAssignment.value.departmentId) return;
+  if (!canCreate.value) return;
   
-  assigning.value = true;
-  assignError.value = '';
-  
+  creating.value = true;
   try {
     await api.post('/cross-audit.php', {
-      admin_id: userId,
-      auditor_id: newAssignment.value.auditorId,
-      department_id: parseInt(newAssignment.value.departmentId),
+      admin_id: authStore.user?.id,
+      auditor_department_id: parseInt(newAssignment.value.auditorDeptId),
+      target_department_id: parseInt(newAssignment.value.targetDeptId),
       notes: newAssignment.value.notes
     });
     
-    closeAssignModal();
-    fetchData();
-  } catch (err: any) {
-    assignError.value = err.response?.data?.error || 'Failed to create assignment';
+    alert('Cross-audit assignment created successfully!');
+    showAssignModal.value = false;
+    newAssignment.value = { auditorDeptId: '', targetDeptId: '', notes: '' };
+    await loadAssignments();
+  } catch (error: any) {
+    console.error('Failed to create assignment:', error);
+    alert('Error: ' + (error.response?.data?.error || error.message));
   } finally {
-    assigning.value = false;
+    creating.value = false;
   }
 }
 
-async function activateAssignment(id: number) {
+async function toggleActive(assignment: any) {
   try {
     await api.put('/cross-audit.php', {
-      admin_id: userId,
-      assignment_id: id,
-      active: true
+      admin_id: authStore.user?.id,
+      assignment_id: assignment.id,
+      active: !assignment.active
     });
-    fetchData();
-  } catch (err: any) {
-    alert('Failed to activate: ' + (err.response?.data?.error || 'Unknown error'));
+    
+    await loadAssignments();
+  } catch (error: any) {
+    console.error('Failed to toggle active:', error);
+    alert('Error: ' + (error.response?.data?.error || error.message));
   }
 }
 
-async function deactivateAssignment(id: number) {
-  try {
-    await api.put('/cross-audit.php', {
-      admin_id: userId,
-      assignment_id: id,
-      active: false
-    });
-    fetchData();
-  } catch (err: any) {
-    alert('Failed to deactivate: ' + (err.response?.data?.error || 'Unknown error'));
-  }
-}
-
-function editNotes(assignment: any) {
+function openEditNotes(assignment: any) {
   editingAssignment.value = assignment;
   editingNotes.value = assignment.notes || '';
-  showNotesModal.value = true;
+  showEditNotesModal.value = true;
 }
 
-async function updateNotes() {
+async function saveNotes() {
   if (!editingAssignment.value) return;
   
+  saving.value = true;
   try {
     await api.put('/cross-audit.php', {
-      admin_id: userId,
+      admin_id: authStore.user?.id,
       assignment_id: editingAssignment.value.id,
       notes: editingNotes.value
     });
-    showNotesModal.value = false;
-    fetchData();
-  } catch (err: any) {
-    alert('Failed to update notes: ' + (err.response?.data?.error || 'Unknown error'));
+    
+    showEditNotesModal.value = false;
+    await loadAssignments();
+  } catch (error: any) {
+    console.error('Failed to save notes:', error);
+    alert('Error: ' + (error.response?.data?.error || error.message));
+  } finally {
+    saving.value = false;
   }
 }
 
-async function deleteAssignment(id: number) {
-  if (!confirm('Are you sure you want to delete this assignment?')) return;
+async function deleteAssignment(assignment: any) {
+  if (!confirm(`Delete assignment:\n${assignment.auditor_department_name} → ${assignment.target_department_name}?\n\nThis cannot be undone.`)) {
+    return;
+  }
   
   try {
     await api.delete('/cross-audit.php', {
       data: {
-        admin_id: userId,
-        assignment_id: id
+        admin_id: authStore.user?.id,
+        assignment_id: assignment.id
       }
     });
-    fetchData();
-  } catch (err: any) {
-    alert('Failed to delete: ' + (err.response?.data?.error || 'Unknown error'));
+    
+    await loadAssignments();
+  } catch (error: any) {
+    console.error('Failed to delete assignment:', error);
+    alert('Error: ' + (error.response?.data?.error || error.message));
   }
 }
 
-function closeAssignModal() {
-  showAssignModal.value = false;
-  newAssignment.value = {
-    auditorId: '',
-    departmentId: '',
-    notes: ''
-  };
-  assignError.value = '';
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-MY', {
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   });
 }
-
-onMounted(() => {
-  fetchData();
-});
 </script>
