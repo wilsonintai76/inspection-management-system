@@ -1,149 +1,156 @@
 <template>
-  <div class="schedule-page">
+  <div class="min-h-screen bg-base-200 p-6">
     <!-- Page Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <span class="breadcrumb-icon">📋</span>
-        <h1 class="page-title">Schedule</h1>
-      </div>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <PageHeader
+        icon="fas fa-calendar-check"
+        title="Schedule"
+        subtitle="Manage inspection schedules and assign auditors"
+      />
+      <select v-model="filterDepartment" class="select select-bordered select-sm md:w-64">
+        <option value="">All Departments</option>
+        <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+          {{ dept.name }}
+        </option>
+      </select>
     </div>
 
     <!-- Schedule Card -->
-    <div class="schedule-card">
-      <div class="card-header">
-        <h2 class="card-title">Inspection Schedule</h2>
-        <select v-model="filterDepartment" class="department-filter">
-          <option value="">All Departments</option>
-          <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-            {{ dept.name }}
-          </option>
-        </select>
-      </div>
+    <div class="card bg-base-100 shadow-md">
+      <div class="card-body">
+        <h2 class="card-title text-lg mb-4">
+          <i class="fas fa-calendar-alt text-primary"></i>
+          Inspection Schedule
+        </h2>
 
-      <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading schedule...</p>
-      </div>
+        <!-- Loading State -->
+        <LoadingSpinner v-if="loading" message="Loading schedule..." />
 
-      <!-- Error State -->
-      <div v-else-if="error" class="error-state">
-        <p class="error-message">{{ error }}</p>
-        <button @click="fetchData" class="btn-retry">Retry</button>
-      </div>
+        <!-- Error State -->
+        <div v-else-if="error" class="alert alert-error">
+          <i class="fas fa-exclamation-circle"></i>
+          <div>
+            <p>{{ error }}</p>
+            <button @click="fetchData" class="btn btn-sm btn-outline mt-2">Retry</button>
+          </div>
+        </div>
 
-      <!-- Schedule Table -->
-      <div v-else class="table-container">
-        <table class="schedule-table">
-          <thead>
-            <tr>
-              <th class="sortable">
-                Location
-                <span class="sort-icon">↕</span>
-              </th>
-              <th class="sortable">
-                Date
-                <span class="sort-icon">↕</span>
-              </th>
-              <th>Auditors</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="filteredLocations.length === 0">
-              <td colspan="3" class="no-data">
-                <span class="no-data-icon">📭</span>
-                <p>No locations found</p>
-              </td>
-            </tr>
-            <tr v-for="location in filteredLocations" :key="location.id">
-              <td>
-                <div class="location-cell">
-                  <div class="location-name">{{ location.name }}</div>
-                  <div class="location-meta">
-                    <span class="department-name">{{ getDepartmentName(location.department_id) }}</span>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <div class="date-cell">
-                  <span class="date-icon">📅</span>
-                  <input 
-                    type="date" 
-                    :value="getInspectionDate(location.id)"
-                    @change="updateInspectionDate(location.id, $event)"
-                    class="date-input"
-                    :disabled="!canSetDate"
+        <!-- Schedule Table -->
+        <div v-else class="overflow-x-auto">
+          <table class="table table-zebra">
+            <thead>
+              <tr>
+                <th class="cursor-pointer hover:bg-base-200">
+                  Location <span class="text-xs ml-1">↕</span>
+                </th>
+                <th class="cursor-pointer hover:bg-base-200">
+                  Date <span class="text-xs ml-1">↕</span>
+                </th>
+                <th>Auditors</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="filteredLocations.length === 0">
+                <td colspan="4">
+                  <EmptyState
+                    icon="fas fa-calendar-times"
+                    title="No locations found"
+                    message="Try adjusting your filters"
                   />
-                </div>
-              </td>
-              <td>
-                <div class="auditors-cell">
-                  <div 
-                    v-for="(auditor, index) in getLocationAuditors(location.id)" 
-                    :key="index" 
-                    class="auditor-item"
-                  >
-                    <span class="auditor-icon">👤</span>
-                    
-                    <!-- Admin: Show dropdown to assign any auditor -->
-                    <select 
-                      v-if="isAdmin && auditor.isEmpty"
-                      @change="assignAuditor(location.id, index, $event)"
-                      class="auditor-select"
-                    >
-                      <option value="">Select Auditor...</option>
-                      <option 
-                        v-for="user in auditorUsers" 
-                        :key="user.id" 
-                        :value="user.id"
-                      >
-                        {{ user.name }}
-                      </option>
-                    </select>
-                    
-                    <!-- Show label for assigned auditor -->
-                    <span v-if="!auditor.isEmpty" class="auditor-label">{{ auditor.name }}</span>
-                    
-                    <!-- Auditor (non-admin): Show label for unassigned slot -->
-                    <span v-if="auditor.isEmpty && isAuditor && !isAdmin" class="auditor-label">{{ auditor.name }}</span>
-                    
-                    <!-- Add button - only for Auditors to add themselves -->
-                    <button 
-                      v-if="auditor.isEmpty && isAuditor" 
-                      class="btn-add-auditor"
-                      @click="assignSelfAsAuditor(location.id, index)"
-                      title="Assign yourself"
-                    >
-                      <span class="plus-icon">⊕</span>
-                    </button>
-                    
-                    <!-- Remove button - Auditors can remove themselves, Admin can remove anyone -->
-                    <button 
-                      v-if="!auditor.isEmpty && (auditor.isCurrentUser || isAdmin)" 
-                      class="btn-remove-auditor"
-                      @click="removeAuditor(location.id, index)"
-                      :title="auditor.isCurrentUser ? 'Remove yourself' : 'Remove auditor'"
-                    >
-                      <span class="remove-icon">⊖</span>
-                    </button>
+                </td>
+              </tr>
+              <tr v-for="location in filteredLocations" :key="location.id">
+                <td>
+                  <div class="flex flex-col gap-1">
+                    <div class="font-semibold">{{ location.name }}</div>
+                    <div class="text-sm text-base-content/60">
+                      {{ getDepartmentName(location.department_id) }}
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td>
-                <button 
-                  @click="toggleInspectionStatus(location.id)" 
-                  class="status-toggle"
-                  :class="getInspectionStatus(location.id) === 'Complete' ? 'status-complete' : 'status-pending'"
-                  :disabled="!canToggleStatus"
-                  :title="canToggleStatus ? 'Click to toggle status' : 'No permission to change status'"
-                >
-                  {{ getInspectionStatus(location.id) || 'Pending' }}
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <i class="fas fa-calendar text-primary"></i>
+                    <input 
+                      type="date" 
+                      :value="getInspectionDate(location.id)"
+                      @change="updateInspectionDate(location.id, $event)"
+                      class="input input-bordered input-sm"
+                      :disabled="!canSetDate"
+                    />
+                  </div>
+                </td>
+                <td>
+                  <div class="flex flex-col gap-2">
+                    <div 
+                      v-for="(auditor, index) in getLocationAuditors(location.id)" 
+                      :key="index" 
+                      class="flex items-center gap-2"
+                    >
+                      <i class="fas fa-user text-base-content/60"></i>
+                      
+                      <!-- Admin: Show dropdown to assign any auditor -->
+                      <select 
+                        v-if="isAdmin && auditor.isEmpty"
+                        @change="assignAuditor(location.id, index, $event)"
+                        class="select select-bordered select-sm"
+                      >
+                        <option value="">Select Auditor...</option>
+                        <option 
+                          v-for="user in auditorUsers" 
+                          :key="user.id" 
+                          :value="user.id"
+                        >
+                          {{ user.name }}
+                        </option>
+                      </select>
+                      
+                      <!-- Show label for assigned auditor -->
+                      <span v-if="!auditor.isEmpty" class="text-sm">{{ auditor.name }}</span>
+                      
+                      <!-- Auditor (non-admin): Show label for unassigned slot -->
+                      <span v-if="auditor.isEmpty && isAuditor && !isAdmin" class="text-sm text-base-content/60">{{ auditor.name }}</span>
+                      
+                      <!-- Add button - only for Auditors to add themselves -->
+                      <button 
+                        v-if="auditor.isEmpty && isAuditor" 
+                        class="btn btn-xs btn-circle btn-success"
+                        @click="assignSelfAsAuditor(location.id, index)"
+                        title="Assign yourself"
+                      >
+                        <i class="fas fa-plus"></i>
+                      </button>
+                      
+                      <!-- Remove button - Auditors can remove themselves, Admin can remove anyone -->
+                      <button 
+                        v-if="!auditor.isEmpty && (auditor.isCurrentUser || isAdmin)" 
+                        class="btn btn-xs btn-circle btn-error"
+                        @click="removeAuditor(location.id, index)"
+                        :title="auditor.isCurrentUser ? 'Remove yourself' : 'Remove auditor'"
+                      >
+                        <i class="fas fa-minus"></i>
+                      </button>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <button 
+                    @click="toggleInspectionStatus(location.id)" 
+                    :class="[
+                      'btn btn-xs',
+                      getInspectionStatus(location.id) === 'Complete' ? 'btn-success' : 'btn-warning'
+                    ]"
+                    :disabled="!canToggleStatus"
+                    :title="canToggleStatus ? 'Click to toggle status' : 'No permission to change status'"
+                  >
+                    {{ getInspectionStatus(location.id) || 'Pending' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -152,6 +159,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import api from '../api';
+import { PageHeader, LoadingSpinner, EmptyState } from '../components';
 
 interface Department {
   id: number;
@@ -621,373 +629,3 @@ onMounted(async () => {
   await fetchData();
 });
 </script>
-
-<style scoped>
-.schedule-page {
-  padding: 2rem;
-  max-width: 1400px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.breadcrumb-icon {
-  font-size: 1.5rem;
-}
-
-.page-title {
-  font-size: 1.875rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.schedule-card {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.department-filter {
-  padding: 0.5rem 2.5rem 0.5rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  color: #374151;
-  background: white;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-}
-
-.department-filter:focus {
-  outline: none;
-  border-color: #14b8a6;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
-}
-
-.loading-state,
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  color: #6b7280;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f4f6;
-  border-top-color: #14b8a6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error-message {
-  color: #ef4444;
-  margin-bottom: 1rem;
-}
-
-.btn-retry {
-  padding: 0.5rem 1rem;
-  background: #14b8a6;
-  color: white;
-  border: none;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.btn-retry:hover {
-  background: #0d9488;
-}
-
-.no-data {
-  text-align: center;
-  padding: 4rem 2rem !important;
-  color: #9ca3af;
-}
-
-.no-data-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
-}
-
-.table-container {
-  overflow-x: auto;
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-.schedule-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.schedule-table thead {
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.schedule-table th {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.schedule-table th.sortable {
-  cursor: pointer;
-  user-select: none;
-}
-
-.schedule-table th.sortable:hover {
-  background: #f3f4f6;
-}
-
-.sort-icon {
-  margin-left: 0.5rem;
-  color: #9ca3af;
-  font-size: 0.875rem;
-}
-
-.schedule-table tbody tr {
-  border-bottom: 1px solid #f3f4f6;
-  transition: background-color 0.15s;
-}
-
-.schedule-table tbody tr:hover {
-  background: #f9fafb;
-}
-
-.schedule-table td {
-  padding: 1.25rem 1.5rem;
-}
-
-.location-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.location-name {
-  font-weight: 600;
-  color: #1f2937;
-  font-size: 0.9375rem;
-}
-
-.location-meta {
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.8125rem;
-  color: #6b7280;
-}
-
-.department-name {
-  color: #6b7280;
-}
-
-.date-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #374151;
-}
-
-.date-icon {
-  font-size: 1rem;
-  color: #14b8a6;
-}
-
-.date-input {
-  padding: 0.375rem 0.625rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  color: #374151;
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.date-input:focus {
-  outline: none;
-  border-color: #14b8a6;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
-}
-
-.date-input:disabled {
-  background: #f3f4f6;
-  cursor: not-allowed;
-  color: #9ca3af;
-}
-
-.auditors-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.auditor-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.auditor-icon {
-  font-size: 1rem;
-  color: #6b7280;
-}
-
-.auditor-label {
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.auditor-label:not(:has(+ .btn-add-auditor)) {
-  color: #374151;
-}
-
-.auditor-select {
-  padding: 0.375rem 2rem 0.375rem 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  color: #374151;
-  background: white;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.5rem center;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.auditor-select:focus {
-  outline: none;
-  border-color: #14b8a6;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
-}
-
-.btn-add-auditor,
-.btn-remove-auditor {
-  padding: 0;
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.25rem;
-  transition: all 0.15s;
-}
-
-.btn-add-auditor:hover {
-  background: #d1fae5;
-}
-
-.btn-remove-auditor:hover {
-  background: #fee2e2;
-}
-
-.plus-icon {
-  color: #10b981;
-  font-size: 1.125rem;
-}
-
-.remove-icon {
-  color: #ef4444;
-  font-size: 1.125rem;
-}
-
-.status-toggle {
-  padding: 0.375rem 0.875rem;
-  border: none;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.status-toggle:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.status-pending {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-pending:hover:not(:disabled) {
-  background: #fde68a;
-}
-
-.status-complete {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-complete:hover:not(:disabled) {
-  background: #a7f3d0;
-}
-
-@media (max-width: 768px) {
-  .schedule-page {
-    padding: 1rem;
-  }
-
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .department-filter {
-    width: 100%;
-  }
-}
-</style>
