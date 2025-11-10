@@ -1,280 +1,319 @@
 <template>
-  <div class="users-page">
+  <div class="min-h-screen bg-base-200 p-6">
     <!-- Page Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <span class="breadcrumb-icon">👤</span>
-        <h1 class="page-title">Users</h1>
-      </div>
-    </div>
+    <PageHeader
+      icon="fas fa-users"
+      title="Users"
+      subtitle="Manage application users, roles, and status"
+    />
 
     <!-- Users Card -->
-    <div class="users-card">
-      <div class="card-header">
-        <div class="header-text">
-          <h2 class="card-title">User Management</h2>
-          <p class="card-subtitle">Manage application users, roles, and status.</p>
+    <div class="card bg-base-100 shadow-md mt-6">
+      <div class="card-body">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
+          <div>
+            <h2 class="card-title">User Management</h2>
+            <p class="text-sm text-base-content/60">Manage application users, roles, and status.</p>
+          </div>
+          <ActionButton 
+            @click="openAddDialog"
+            variant="success"
+            icon="fas fa-plus"
+          >
+            Add User
+          </ActionButton>
         </div>
-        <button class="btn-add" @click="openAddDialog">
-          <span class="btn-icon">⊕</span>
-          Add User
+
+        <!-- Loading State -->
+        <LoadingSpinner v-if="loading" message="Loading users..." />
+
+        <!-- Error State -->
+        <div v-else-if="error" class="alert alert-error">
+          <i class="fas fa-exclamation-circle"></i>
+          <div>
+            <p>{{ error }}</p>
+            <button @click="fetchData" class="btn btn-sm btn-outline mt-2">Retry</button>
+          </div>
+        </div>
+
+        <!-- Users Table -->
+        <div v-else class="overflow-x-auto">
+          <table class="table table-zebra">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Contact</th>
+                <th>Department</th>
+                <th>Assigned Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="users.length === 0">
+                <td colspan="6">
+                  <EmptyState
+                    icon="fas fa-users"
+                    title="No users found"
+                    message="Get started by adding your first user"
+                  />
+                </td>
+              </tr>
+              <tr v-for="user in users" :key="user.id">
+                <td>
+                  <div class="font-semibold">{{ user.name }}</div>
+                </td>
+                <td>
+                  <div class="flex flex-col gap-1">
+                    <div class="text-sm">{{ user.email }}</div>
+                    <div class="text-xs text-base-content/60">{{ user.phone || 'No phone' }}</div>
+                  </div>
+                </td>
+                <td>
+                  {{ getDepartmentName(user.department_id) }}
+                </td>
+                <td>
+                  {{ formatRoles(user.roles) }}
+                </td>
+                <td>
+                  <button 
+                    @click="toggleStatus(user)" 
+                    :class="[
+                      'btn btn-xs',
+                      user.status === 'Verified' ? 'btn-success' : 'btn-ghost'
+                    ]"
+                    :title="`Click to ${user.status === 'Verified' ? 'unverify' : 'verify'}`"
+                  >
+                    {{ user.status || 'Unverified' }}
+                  </button>
+                </td>
+                <td>
+                  <div class="flex gap-2">
+                    <button 
+                      @click="openEditDialog(user)" 
+                      class="btn btn-xs btn-ghost"
+                      title="Edit"
+                    >
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button 
+                      @click="openTransferDialog(user)" 
+                      class="btn btn-xs btn-ghost"
+                      title="Transfer Staff ID"
+                    >
+                      <i class="fas fa-exchange-alt"></i>
+                    </button>
+                    <button 
+                      @click="confirmDelete(user)" 
+                      class="btn btn-xs btn-ghost text-error"
+                      title="Delete"
+                    >
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit User Modal -->
+    <Modal
+      v-model="showDialog"
+      :title="editingUser ? 'Edit User' : 'Add New User'"
+      size="lg"
+    >
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Staff ID *</span>
+          </label>
+          <input 
+            v-model="formData.staff_id" 
+            type="text" 
+            placeholder="4-digit staff ID" 
+            class="input input-bordered"
+            maxlength="4"
+            pattern="\d{4}"
+            :disabled="!!editingUser"
+          />
+          <label class="label">
+            <span class="label-text-alt">Must be 4 digits. Cannot be changed after creation.</span>
+          </label>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Full Name *</span>
+          </label>
+          <input 
+            v-model="formData.name" 
+            type="text" 
+            placeholder="John Doe" 
+            class="input input-bordered"
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Institution Email Address *</span>
+          </label>
+          <input 
+            v-model="formData.email" 
+            type="email" 
+            placeholder="user@institution.edu" 
+            class="input input-bordered"
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Personal Email Address</span>
+          </label>
+          <input 
+            v-model="formData.personal_email" 
+            type="email" 
+            placeholder="user@gmail.com" 
+            class="input input-bordered"
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Mobile Phone No.</span>
+          </label>
+          <input 
+            v-model="formData.phone" 
+            type="text" 
+            placeholder="(555) 123-4567" 
+            class="input input-bordered"
+          />
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Roles *</span>
+          </label>
+          <div class="space-y-2">
+            <label class="label cursor-pointer justify-start gap-2">
+              <input type="checkbox" class="checkbox checkbox-primary" value="Admin" v-model="formData.roles" />
+              <span class="label-text">Admin</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-2">
+              <input type="checkbox" class="checkbox checkbox-primary" value="Asset Officer" v-model="formData.roles" />
+              <span class="label-text">Asset Officer</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-2">
+              <input type="checkbox" class="checkbox checkbox-primary" value="Auditor" v-model="formData.roles" />
+              <span class="label-text">Auditor</span>
+            </label>
+            <label class="label cursor-pointer justify-start gap-2">
+              <input type="checkbox" class="checkbox checkbox-primary" value="Viewer" v-model="formData.roles" />
+              <span class="label-text">Viewer</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Department *</span>
+          </label>
+          <select v-model="formData.department_id" class="select select-bordered">
+            <option value="">Select a department</option>
+            <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+              {{ dept.name }}
+            </option>
+          </select>
+        </div>
+
+        <div v-if="!editingUser" class="alert alert-info">
+          <i class="fas fa-info-circle"></i>
+          <div class="text-sm">
+            <strong>Note:</strong> A temporary password will be automatically generated and sent to the user's email. The user will be required to change it on first login.
+          </div>
+        </div>
+      </div>
+
+      <template #actions>
+        <button @click="closeDialog" class="btn">Cancel</button>
+        <button @click="saveUser" class="btn btn-primary" :disabled="!isFormValid">
+          {{ editingUser ? 'Update User' : 'Create User' }}
         </button>
+      </template>
+    </Modal>
+
+    <!-- Delete Confirmation Modal -->
+    <Modal
+      v-model="showDeleteDialog"
+      title="Delete User"
+      size="sm"
+    >
+      <div class="space-y-4">
+        <p>Are you sure you want to delete <strong>{{ userToDelete?.name }}</strong>?</p>
+        <p class="text-error text-sm">This action cannot be undone.</p>
       </div>
 
-      <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading users...</p>
+      <template #actions>
+        <button @click="closeDeleteDialog" class="btn">Cancel</button>
+        <button @click="deleteUser" class="btn btn-error">Delete</button>
+      </template>
+    </Modal>
+
+    <!-- Transfer Staff ID Modal -->
+    <Modal
+      v-model="showTransferDialog"
+      title="Transfer Staff ID"
+      size="sm"
+    >
+      <div class="space-y-4">
+        <p>Transfer staff ID for <strong>{{ userToTransfer?.name }}</strong></p>
+        
+        <div class="bg-base-200 p-4 rounded-lg">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold">Current Staff ID:</span>
+            <Badge variant="primary">{{ userToTransfer?.staff_id }}</Badge>
+          </div>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">New Staff ID *</span>
+          </label>
+          <input 
+            v-model="newStaffId" 
+            type="text" 
+            placeholder="Enter new 4-digit staff ID" 
+            class="input input-bordered"
+            maxlength="4"
+            pattern="\d{4}"
+          />
+          <label class="label">
+            <span class="label-text-alt">Must be 4 digits and not already in use.</span>
+          </label>
+        </div>
+
+        <div class="alert alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div class="text-sm">
+            This will update the staff ID across all database tables. The user will need to login with the new staff ID.
+          </div>
+        </div>
       </div>
 
-      <!-- Error State -->
-      <div v-else-if="error" class="error-state">
-        <p class="error-message">{{ error }}</p>
-        <button @click="fetchData" class="btn-retry">Retry</button>
-      </div>
-
-      <!-- Users Table -->
-      <div v-else class="table-container">
-        <table class="users-table">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Contact</th>
-              <th>Department</th>
-              <th>Assigned Role</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="users.length === 0">
-              <td colspan="6" class="no-data">
-                <span class="no-data-icon">📭</span>
-                <p>No users found</p>
-              </td>
-            </tr>
-            <tr v-for="user in users" :key="user.id">
-              <td>
-                <div class="user-name">{{ user.name }}</div>
-              </td>
-              <td>
-                <div class="contact-info">
-                  <div class="email">{{ user.email }}</div>
-                  <div class="phone">{{ user.phone || 'No phone' }}</div>
-                </div>
-              </td>
-              <td>
-                <div class="department-name">{{ getDepartmentName(user.department_id) }}</div>
-              </td>
-              <td>
-                <div class="roles">{{ formatRoles(user.roles) }}</div>
-              </td>
-              <td>
-                <button 
-                  @click="toggleStatus(user)" 
-                  class="status-badge"
-                  :class="user.status === 'Verified' ? 'status-verified' : 'status-unverified'"
-                  :title="`Click to ${user.status === 'Verified' ? 'unverify' : 'verify'}`"
-                >
-                  {{ user.status || 'Unverified' }}
-                </button>
-              </td>
-              <td>
-                <div class="action-buttons">
-                  <button 
-                    @click="openEditDialog(user)" 
-                    class="btn-edit"
-                    title="Edit"
-                  >
-                    ✏️
-                  </button>
-                  <button 
-                    @click="openTransferDialog(user)" 
-                    class="btn-transfer"
-                    title="Transfer Staff ID"
-                  >
-                    🔄
-                  </button>
-                  <button 
-                    @click="confirmDelete(user)" 
-                    class="btn-delete"
-                    title="Delete"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Add/Edit User Dialog -->
-    <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
-      <div class="dialog dialog-large" @click.stop>
-        <div class="dialog-header">
-          <h3>{{ editingUser ? 'Edit User' : 'Add New User' }}</h3>
-          <button @click="closeDialog" class="btn-close">✕</button>
-        </div>
-        <div class="dialog-body">
-          <div class="form-group">
-            <label for="user-staff-id">Staff ID *</label>
-            <input 
-              id="user-staff-id"
-              v-model="formData.staff_id" 
-              type="text" 
-              placeholder="4-digit staff ID" 
-              class="form-input"
-              maxlength="4"
-              pattern="\d{4}"
-              :disabled="!!editingUser"
-            />
-            <small class="field-hint">Must be 4 digits. Cannot be changed after creation.</small>
-          </div>
-          <div class="form-group">
-            <label for="user-name">Full Name *</label>
-            <input 
-              id="user-name"
-              v-model="formData.name" 
-              type="text" 
-              placeholder="John Doe" 
-              class="form-input"
-            />
-          </div>
-          <div class="form-group">
-            <label for="user-email">Institution Email Address *</label>
-            <input 
-              id="user-email"
-              v-model="formData.email" 
-              type="email" 
-              placeholder="user@institution.edu" 
-              class="form-input"
-            />
-          </div>
-          <div class="form-group">
-            <label for="user-personal-email">Personal Email Address</label>
-            <input 
-              id="user-personal-email"
-              v-model="formData.personal_email" 
-              type="email" 
-              placeholder="user@gmail.com" 
-              class="form-input"
-            />
-          </div>
-          <div class="form-group">
-            <label for="user-phone">Mobile Phone No.</label>
-            <input 
-              id="user-phone"
-              v-model="formData.phone" 
-              type="text" 
-              placeholder="(555) 123-4567" 
-              class="form-input"
-            />
-          </div>
-          <div class="form-group">
-            <label>Roles *</label>
-            <div class="checkbox-group">
-              <label class="checkbox-label">
-                <input type="checkbox" value="Admin" v-model="formData.roles" />
-                <span>Admin</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" value="Asset Officer" v-model="formData.roles" />
-                <span>Asset Officer</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" value="Auditor" v-model="formData.roles" />
-                <span>Auditor</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" value="Viewer" v-model="formData.roles" />
-                <span>Viewer</span>
-              </label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="user-department">Department *</label>
-            <select id="user-department" v-model="formData.department_id" class="form-select">
-              <option value="">Select a department</option>
-              <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-                {{ dept.name }}
-              </option>
-            </select>
-          </div>
-          <div v-if="!editingUser" class="info-box">
-            <p><strong>Note:</strong> A temporary password will be automatically generated and sent to the user's email. The user will be required to change it on first login.</p>
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button @click="closeDialog" class="btn-cancel">Cancel</button>
-          <button @click="saveUser" class="btn-save" :disabled="!isFormValid">
-            {{ editingUser ? 'Update User' : 'Create User' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Delete Confirmation Dialog -->
-    <div v-if="showDeleteDialog" class="dialog-overlay" @click="closeDeleteDialog">
-      <div class="dialog dialog-small" @click.stop>
-        <div class="dialog-header">
-          <h3>Delete User</h3>
-          <button @click="closeDeleteDialog" class="btn-close">✕</button>
-        </div>
-        <div class="dialog-body">
-          <p>Are you sure you want to delete <strong>{{ userToDelete?.name }}</strong>?</p>
-          <p class="warning-text">This action cannot be undone.</p>
-        </div>
-        <div class="dialog-footer">
-          <button @click="closeDeleteDialog" class="btn-cancel">Cancel</button>
-          <button @click="deleteUser" class="btn-delete-confirm">Delete</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Transfer Staff ID Dialog -->
-    <div v-if="showTransferDialog" class="dialog-overlay" @click="closeTransferDialog">
-      <div class="dialog dialog-small" @click.stop>
-        <div class="dialog-header">
-          <h3>Transfer Staff ID</h3>
-          <button @click="closeTransferDialog" class="btn-close">✕</button>
-        </div>
-        <div class="dialog-body">
-          <p>Transfer staff ID for <strong>{{ userToTransfer?.name }}</strong></p>
-          <div class="transfer-info">
-            <div class="current-id">
-              <label>Current Staff ID:</label>
-              <span class="id-badge">{{ userToTransfer?.staff_id }}</span>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="new-staff-id">New Staff ID *</label>
-            <input 
-              id="new-staff-id"
-              v-model="newStaffId" 
-              type="text" 
-              placeholder="Enter new 4-digit staff ID" 
-              class="form-input"
-              maxlength="4"
-              pattern="\d{4}"
-            />
-            <small class="field-hint">Must be 4 digits and not already in use.</small>
-          </div>
-          <p class="warning-text">⚠️ This will update the staff ID across all database tables. The user will need to login with the new staff ID.</p>
-        </div>
-        <div class="dialog-footer">
-          <button @click="closeTransferDialog" class="btn-cancel">Cancel</button>
-          <button @click="transferStaffId" class="btn-transfer-confirm" :disabled="!isNewStaffIdValid">Transfer</button>
-        </div>
-      </div>
-    </div>
+      <template #actions>
+        <button @click="closeTransferDialog" class="btn">Cancel</button>
+        <button @click="transferStaffId" class="btn btn-primary" :disabled="!isNewStaffIdValid">Transfer</button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import api from '../api';
+import { PageHeader, ActionButton, LoadingSpinner, EmptyState, Modal, Badge } from '../components';
 
 interface Department {
   id: number;
@@ -581,534 +620,3 @@ onMounted(async () => {
   await fetchData();
 });
 </script>
-
-<style scoped>
-.users-page {
-  padding: 2rem;
-  max-width: 1600px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.breadcrumb-icon {
-  font-size: 1.5rem;
-}
-
-.page-title {
-  font-size: 1.875rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.users-card {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.header-text {
-  flex: 1;
-}
-
-.card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0 0 0.25rem 0;
-}
-
-.card-subtitle {
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin: 0;
-}
-
-.btn-add {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.btn-add:hover {
-  background: #059669;
-}
-
-.btn-icon {
-  font-size: 1.25rem;
-}
-
-.loading-state,
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  color: #6b7280;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f4f6;
-  border-top-color: #10b981;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.error-message {
-  color: #ef4444;
-  margin-bottom: 1rem;
-}
-
-.btn-retry {
-  padding: 0.5rem 1rem;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.btn-retry:hover {
-  background: #059669;
-}
-
-.table-container {
-  overflow-x: auto;
-}
-
-.users-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.users-table thead {
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.users-table th {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.users-table tbody tr {
-  border-bottom: 1px solid #f3f4f6;
-  transition: background-color 0.15s;
-}
-
-.users-table tbody tr:hover {
-  background: #f9fafb;
-}
-
-.users-table td {
-  padding: 1.25rem 1.5rem;
-  color: #374151;
-}
-
-.no-data {
-  text-align: center;
-  padding: 4rem 2rem !important;
-  color: #9ca3af;
-}
-
-.no-data-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
-}
-
-.user-name {
-  font-weight: 600;
-  color: #1f2937;
-  font-size: 0.9375rem;
-}
-
-.contact-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.email {
-  color: #374151;
-  font-size: 0.875rem;
-}
-
-.phone {
-  color: #6b7280;
-  font-size: 0.8125rem;
-}
-
-.department-name {
-  color: #374151;
-  font-size: 0.9375rem;
-}
-
-.roles {
-  color: #374151;
-  font-size: 0.9375rem;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.375rem 0.875rem;
-  border-radius: 9999px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
-.status-verified {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn-edit,
-.btn-delete {
-  padding: 0.375rem 0.75rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  transition: background-color 0.15s;
-}
-
-.btn-edit:hover {
-  background: #dbeafe;
-}
-
-.btn-delete:hover {
-  background: #fee2e2;
-}
-
-/* Dialog Styles */
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.dialog {
-  background: white;
-  border-radius: 0.75rem;
-  max-width: 500px;
-  width: 100%;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.dialog-large {
-  max-width: 600px;
-}
-
-.dialog-small {
-  max-width: 400px;
-}
-
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.dialog-header h3 {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.btn-close {
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  border-radius: 0.375rem;
-  font-size: 1.25rem;
-  transition: background-color 0.15s;
-}
-
-.btn-close:hover {
-  background: #f3f4f6;
-}
-
-.dialog-body {
-  padding: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 1.25rem;
-}
-
-.form-group:last-child {
-  margin-bottom: 0;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-}
-
-.form-input,
-.form-select {
-  width: 100%;
-  padding: 0.625rem 0.875rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  color: #1f2937;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
-
-.form-input:disabled {
-  background: #f3f4f6;
-  color: #6b7280;
-  cursor: not-allowed;
-}
-
-.checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  font-size: 0.875rem;
-  color: #374151;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 1.125rem;
-  height: 1.125rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.25rem;
-  cursor: pointer;
-  accent-color: #10b981;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.btn-cancel,
-.btn-save,
-.btn-delete-confirm {
-  padding: 0.625rem 1.25rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.btn-cancel {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.btn-cancel:hover {
-  background: #e5e7eb;
-}
-
-.btn-save {
-  background: #10b981;
-  color: white;
-}
-
-.btn-save:hover:not(:disabled) {
-  background: #059669;
-}
-
-.btn-save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-delete-confirm {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-delete-confirm:hover {
-  background: #dc2626;
-}
-
-.btn-transfer-confirm {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-transfer-confirm:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.btn-transfer-confirm:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.btn-transfer {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0.375rem 0.75rem;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-.btn-transfer:hover {
-  background: #dbeafe;
-}
-
-.transfer-info {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  background: #f3f4f6;
-  border-radius: 6px;
-}
-
-.current-id {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.current-id label {
-  font-weight: 600;
-  color: #374151;
-}
-
-.id-badge {
-  background: #3b82f6;
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.warning-text {
-  color: #ef4444;
-  font-size: 0.875rem;
-  margin-top: 0.5rem;
-}
-
-.field-hint {
-  display: block;
-  margin-top: 0.375rem;
-  font-size: 0.8125rem;
-  color: #6b7280;
-}
-
-.info-box {
-  background: #eff6ff;
-  border-left: 4px solid #3b82f6;
-  padding: 1rem;
-  border-radius: 0.375rem;
-  margin-top: 1rem;
-}
-
-.info-box p {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #1e40af;
-}
-
-@media (max-width: 768px) {
-  .users-page {
-    padding: 1rem;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .card-header {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .btn-add {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style>
