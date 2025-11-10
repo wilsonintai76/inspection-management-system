@@ -1,10 +1,9 @@
-// Updated for Tailwind v4: use the new @tailwindcss/postcss plugin wrapper
-import tailwindcss from '@tailwindcss/postcss';
+import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 
 export default {
   plugins: [
-    tailwindcss(),
-    autoprefixer(),
+    tailwindcss,
+    autoprefixer,
   ],
 };
