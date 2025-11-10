@@ -1,95 +1,148 @@
 <template>
-  <div class="app" :class="{ 'app-with-sidebar': isLoggedIn }">
+  <div class="flex h-screen overflow-hidden">
     <!-- Sidebar navigation -->
-    <aside v-if="isLoggedIn" class="sidebar">
-      <div class="sidebar-header">
-        <div class="logo-icon">🔍</div>
-        <h1 class="logo-text">INSPECT</h1>
+    <aside v-if="isLoggedIn" class="w-60 bg-white border-r border-gray-200 flex flex-col">
+      <!-- Logo Header -->
+      <div class="flex items-center gap-3 p-5 border-b border-gray-200">
+        <div class="text-2xl text-teal-600">🔍</div>
+        <h1 class="text-xl font-bold text-gray-900">INSPECT</h1>
       </div>
-      <nav class="sidebar-nav">
-        <!-- Overview - Everyone can see -->
-        <RouterLink v-if="auth.can('canViewDashboard')" to="/dashboard" class="nav-item">
-          <span class="nav-icon">⊞</span>
-          <span class="nav-label">Overview</span>
+
+      <!-- Navigation -->
+      <nav class="flex-1 py-4 overflow-y-auto">
+        <!-- Overview -->
+        <RouterLink 
+          v-if="auth.can('canViewDashboard')" 
+          to="/dashboard" 
+          class="flex items-center gap-3 px-5 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors relative"
+          active-class="bg-teal-50 text-teal-600 font-semibold before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-teal-600"
+        >
+          <span class="text-lg w-5 text-center">⊞</span>
+          <span>Overview</span>
         </RouterLink>
         
-        <!-- Schedule - Auditor and Admin only -->
-        <RouterLink v-if="auth.can('canViewSchedule')" to="/schedule" class="nav-item">
-          <span class="nav-icon">🏠</span>
-          <span class="nav-label">Schedule</span>
+        <!-- Schedule -->
+        <RouterLink 
+          v-if="auth.can('canViewSchedule')" 
+          to="/schedule" 
+          class="flex items-center gap-3 px-5 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors relative"
+          active-class="bg-teal-50 text-teal-600 font-semibold before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-teal-600"
+        >
+          <span class="text-lg w-5 text-center">🏠</span>
+          <span>Schedule</span>
         </RouterLink>
         
-        <!-- Reports Group - Asset Officer and Admin only -->
-        <div v-if="auth.can('canViewAssetInspection')" class="nav-group">
-          <div class="nav-item nav-group-header" @click="toggleReports">
-            <span class="nav-icon">📊</span>
-            <span class="nav-label">Reports</span>
-            <span class="nav-arrow" :class="{ expanded: reportsExpanded }">›</span>
+        <!-- Reports Group -->
+        <div v-if="auth.can('canViewAssetInspection')">
+          <div 
+            class="flex items-center gap-3 px-5 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
+            @click="toggleReports"
+          >
+            <span class="text-lg w-5 text-center">📊</span>
+            <span class="flex-1">Reports</span>
+            <span class="text-xl text-gray-400 transition-transform" :class="{ 'rotate-90': reportsExpanded }">›</span>
           </div>
-          <div v-if="reportsExpanded" class="nav-submenu">
-            <RouterLink v-if="auth.can('canViewAssetInspection')" to="/asset-inspection" class="nav-subitem">
-              <span class="nav-icon">📦</span>
-              <span class="nav-label">Asset Inspection</span>
+          <div v-if="reportsExpanded" class="bg-gray-50">
+            <RouterLink 
+              v-if="auth.can('canViewAssetInspection')" 
+              to="/asset-inspection" 
+              class="flex items-center gap-3 pl-12 pr-5 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors relative"
+              active-class="bg-teal-50 text-teal-600 font-medium"
+            >
+              <span class="text-base w-5 text-center">📦</span>
+              <span>Asset Inspection</span>
             </RouterLink>
           </div>
         </div>
         
-        <!-- Departments Management Group -->
-        <div v-if="auth.can('canViewAssetInspection') || auth.can('canViewLocations')" class="nav-group">
-          <div class="nav-item nav-group-header" @click="toggleDepartments">
-            <span class="nav-icon">🏢</span>
-            <span class="nav-label">Departments</span>
-            <span class="nav-arrow" :class="{ expanded: departmentsExpanded }">›</span>
+        <!-- Departments Group -->
+        <div v-if="auth.can('canViewAssetInspection') || auth.can('canViewLocations')">
+          <div 
+            class="flex items-center gap-3 px-5 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
+            @click="toggleDepartments"
+          >
+            <span class="text-lg w-5 text-center">🏢</span>
+            <span class="flex-1">Departments</span>
+            <span class="text-xl text-gray-400 transition-transform" :class="{ 'rotate-90': departmentsExpanded }">›</span>
           </div>
-          <div v-if="departmentsExpanded" class="nav-submenu">
-            <RouterLink v-if="auth.can('canViewLocations') || auth.can('canViewAssetInspection') || auth.can('canViewInspectionStatus')" to="/departments" class="nav-subitem">
-              <span class="nav-icon">🗂️</span>
-              <span class="nav-label">Summary</span>
+          <div v-if="departmentsExpanded" class="bg-gray-50">
+            <RouterLink 
+              v-if="auth.can('canViewLocations') || auth.can('canViewAssetInspection') || auth.can('canViewInspectionStatus')" 
+              to="/departments" 
+              class="flex items-center gap-3 pl-12 pr-5 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors relative"
+              active-class="bg-teal-50 text-teal-600 font-medium"
+            >
+              <span class="text-base w-5 text-center">🗂️</span>
+              <span>Summary</span>
             </RouterLink>
-            <RouterLink v-if="auth.can('canViewLocations')" to="/locations" class="nav-subitem">
-              <span class="nav-icon">📍</span>
-              <span class="nav-label">Locations</span>
+            <RouterLink 
+              v-if="auth.can('canViewLocations')" 
+              to="/locations" 
+              class="flex items-center gap-3 pl-12 pr-5 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors relative"
+              active-class="bg-teal-50 text-teal-600 font-medium"
+            >
+              <span class="text-base w-5 text-center">📍</span>
+              <span>Locations</span>
             </RouterLink>
           </div>
         </div>
 
-        <!-- Settings Group - Admin only -->
-        <div v-if="auth.can('canViewUsers')" class="nav-group">
-          <div class="nav-item nav-group-header" @click="toggleSettings">
-            <span class="nav-icon">⚙️</span>
-            <span class="nav-label">Settings</span>
-            <span class="nav-arrow" :class="{ expanded: settingsExpanded }">›</span>
+        <!-- Settings Group -->
+        <div v-if="auth.can('canViewUsers')">
+          <div 
+            class="flex items-center gap-3 px-5 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
+            @click="toggleSettings"
+          >
+            <span class="text-lg w-5 text-center">⚙️</span>
+            <span class="flex-1">Settings</span>
+            <span class="text-xl text-gray-400 transition-transform" :class="{ 'rotate-90': settingsExpanded }">›</span>
           </div>
-          <div v-if="settingsExpanded" class="nav-submenu">
-            <RouterLink v-if="auth.can('canViewUsers')" to="/users" class="nav-subitem">
-              <span class="nav-icon">👤</span>
-              <span class="nav-label">Users</span>
+          <div v-if="settingsExpanded" class="bg-gray-50">
+            <RouterLink 
+              v-if="auth.can('canViewUsers')" 
+              to="/users" 
+              class="flex items-center gap-3 pl-12 pr-5 py-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors relative"
+              active-class="bg-teal-50 text-teal-600 font-medium"
+            >
+              <span class="text-base w-5 text-center">👤</span>
+              <span>Users</span>
             </RouterLink>
           </div>
         </div>
         
-        <!-- Logout - quick access in menu -->
-        <div class="nav-item" @click="handleLogout">
-          <span class="nav-icon">🚪</span>
-          <span class="nav-label">Logout</span>
+        <!-- Logout -->
+        <div 
+          class="flex items-center gap-3 px-5 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
+          @click="handleLogout"
+        >
+          <span class="text-lg w-5 text-center">🚪</span>
+          <span>Logout</span>
         </div>
       </nav>
-      <div class="sidebar-footer">
-        <RouterLink to="/profile" class="user-profile-link">
-          <div class="user-profile">
-            <div class="user-avatar">{{ getInitials(userEmail) }}</div>
-            <div class="user-info">
-              <div class="user-name">{{ userName }}</div>
-              <div class="user-role">View Profile</div>
-            </div>
+
+      <!-- User Profile Footer -->
+      <div class="border-t border-gray-200 p-4 flex items-center gap-2">
+        <RouterLink to="/profile" class="flex items-center gap-3 flex-1 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+          <div class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center font-semibold flex-shrink-0">
+            {{ getInitials(userEmail) }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm text-gray-900 truncate">{{ userName }}</div>
+            <div class="text-xs text-teal-600 truncate">View Profile</div>
           </div>
         </RouterLink>
-        <button @click="handleLogout" class="btn-logout-icon" title="Logout">↗</button>
+        <button 
+          @click="handleLogout" 
+          class="p-2 text-gray-600 hover:text-teal-600 transition-colors" 
+          title="Logout"
+        >
+          ↗
+        </button>
       </div>
     </aside>
 
     <!-- Main content area -->
-    <main :class="{ 'main': isLoggedIn, 'main-full': !isLoggedIn }">
+    <main :class="isLoggedIn ? 'flex-1 bg-gray-50 overflow-auto' : 'flex-1'">
       <RouterView />
     </main>
   </div>
@@ -165,254 +218,6 @@ function handleLogout() {
   router.push('/login');
 }
 </script>
-
-<style scoped>
-.app {
-  min-height: 100vh;
-  background: #f9fafb;
-}
-
-.app-with-sidebar {
-  display: flex;
-}
-
-/* Sidebar */
-.sidebar {
-  width: 240px;
-  background: white;
-  border-right: 1px solid #e5e7eb;
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  z-index: 100;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1.5rem 1.25rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.logo-icon {
-  font-size: 1.5rem;
-  color: var(--teal);
-}
-
-.logo-text {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 0;
-}
-
-.sidebar-nav {
-  flex: 1;
-  padding: 1rem 0;
-  overflow-y: auto;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
-  color: #6b7280;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.nav-item:hover {
-  background: #f3f4f6;
-  color: #1f2937;
-}
-
-.nav-item.router-link-active {
-  background: #f0fdfa;
-  color: var(--teal);
-  font-weight: 600;
-}
-
-.nav-item.router-link-active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--teal);
-}
-
-.nav-icon {
-  font-size: 1.1rem;
-  width: 20px;
-  text-align: center;
-}
-
-.nav-label {
-  flex: 1;
-  font-size: 0.95rem;
-}
-
-.nav-group {
-  position: relative;
-}
-
-.nav-group-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.nav-group-header:hover {
-  background: #f3f4f6;
-  color: #1f2937;
-}
-
-.nav-arrow {
-  font-size: 1.2rem;
-  color: #9ca3af;
-  transition: transform 0.2s;
-}
-
-.nav-arrow.expanded {
-  transform: rotate(90deg);
-}
-
-.nav-submenu {
-  background: #f9fafb;
-}
-
-.nav-subitem {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 1.25rem 0.625rem 3rem;
-  color: #6b7280;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.9rem;
-}
-
-.nav-subitem:hover {
-  background: #f3f4f6;
-  color: #1f2937;
-}
-
-.nav-subitem.router-link-active {
-  background: #f0fdfa;
-  color: var(--teal);
-  font-weight: 500;
-}
-
-.sidebar-footer {
-  border-top: 1px solid #e5e7eb;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.user-profile-link {
-  flex: 1;
-  text-decoration: none;
-  color: inherit;
-}
-
-.user-profile {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.15s;
-  cursor: pointer;
-}
-
-.user-profile-link:hover .user-profile {
-  background: #f3f4f6;
-}
-
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--teal);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.user-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.user-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #1f2937;
-}
-
-.user-role {
-  font-size: 0.75rem;
-  color: #14b8a6;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.btn-logout-icon {
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0.25rem;
-  transition: color 0.2s;
-}
-
-.btn-logout-icon:hover {
-  color: var(--teal);
-}
-
-.main {
-  flex: 1;
-  margin-left: 240px;
-  padding: 0;
-  background: #f9fafb;
-  min-height: 100vh;
-}
-
-.main-full {
-  padding: 0;
-  min-height: 100vh;
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    width: 200px;
-  }
-  
-  .main {
-    margin-left: 200px;
-  }
-}
-</style>
 
 <style>
 /* Global styles - not scoped */
