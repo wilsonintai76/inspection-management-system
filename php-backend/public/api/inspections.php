@@ -15,6 +15,13 @@ function get_json_body() {
 function can_audit_department($auditorId, $departmentId, $pdo) {
     if (!$auditorId || !$departmentId) return true; // If no auditor/dept specified, allow
     
+    // Check if auditor is Admin - admins can audit any department
+    $stmt = $pdo->prepare('SELECT role FROM user_roles WHERE user_id = ? AND role = "Admin"');
+    $stmt->execute([$auditorId]);
+    if ($stmt->fetch()) {
+        return true; // Admins bypass all cross-audit restrictions
+    }
+    
     // Get auditor's own department
     $stmt = $pdo->prepare('SELECT department_id FROM users WHERE id = ?');
     $stmt->execute([$auditorId]);
@@ -26,7 +33,7 @@ function can_audit_department($auditorId, $departmentId, $pdo) {
     
     $auditorDeptId = $auditor['department_id'];
     
-    // Cannot audit own department (conflict of interest)
+    // Cannot audit own department (conflict of interest) - unless admin (already checked above)
     if ($auditorDeptId == $departmentId) {
         return false;
     }

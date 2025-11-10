@@ -21,10 +21,10 @@
             <div class="text-sm">
               <ul class="list-disc list-inside space-y-1">
                 <li>Format: Excel (.xlsx, .xls) or CSV</li>
-                <li>Required columns (exact names): <strong>Label, Jenis Aset, Pegawai Penempatan, Bahagian, Lokasi Terkini</strong></li>
+                <li>Required columns (exact names): <strong>Label, Jenis Aset, Bahagian, Lokasi Terkini</strong></li>
                 <li>Label = Asset ID (unique, e.g., KPT/PKS/I/08/406)</li>
                 <li>Jenis Aset = Asset Type</li>
-                <li>Pegawai Penempatan = Supervisor/PIC</li>
+                <li><strong>Supervisor is now managed in Locations setup</strong> (column Pegawai Penempatan is ignored if present)</li>
                 <li>Bahagian = Department</li>
                 <li>Lokasi Terkini = Current Location</li>
                 <li>First row must be headers</li>

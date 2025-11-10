@@ -241,12 +241,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useAuthStore } from '../stores/auth';
-import api from '../lib/api';
+import { useAuth } from '../composables/useAuth';
+import api from '../api';
 import PageHeader from '../components/PageHeader.vue';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
 
-const authStore = useAuthStore();
+const { userId } = useAuth();
 
 const loading = ref(true);
 const creating = ref(false);
@@ -296,7 +296,7 @@ onMounted(async () => {
 async function loadAssignments() {
   try {
     const response = await api.get('/cross-audit.php', {
-      params: { user_id: authStore.user?.id }
+      params: { user_id: userId.value }
     });
     assignments.value = response.data.assignments || [];
   } catch (error: any) {
@@ -320,7 +320,7 @@ async function createAssignment() {
   creating.value = true;
   try {
     await api.post('/cross-audit.php', {
-      admin_id: authStore.user?.id,
+      admin_id: userId.value,
       auditor_department_id: parseInt(newAssignment.value.auditorDeptId),
       target_department_id: parseInt(newAssignment.value.targetDeptId),
       notes: newAssignment.value.notes
@@ -341,7 +341,7 @@ async function createAssignment() {
 async function toggleActive(assignment: any) {
   try {
     await api.put('/cross-audit.php', {
-      admin_id: authStore.user?.id,
+      admin_id: userId.value,
       assignment_id: assignment.id,
       active: !assignment.active
     });
@@ -365,7 +365,7 @@ async function saveNotes() {
   saving.value = true;
   try {
     await api.put('/cross-audit.php', {
-      admin_id: authStore.user?.id,
+      admin_id: userId.value,
       assignment_id: editingAssignment.value.id,
       notes: editingNotes.value
     });
@@ -388,7 +388,7 @@ async function deleteAssignment(assignment: any) {
   try {
     await api.delete('/cross-audit.php', {
       data: {
-        admin_id: authStore.user?.id,
+        admin_id: userId.value,
         assignment_id: assignment.id
       }
     });

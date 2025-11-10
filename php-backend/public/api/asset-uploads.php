@@ -118,6 +118,29 @@ try {
                 break;
             }
             
+            // Optional overwrite: clear previous asset inspection data first
+            $overwrite = isset($_POST['overwrite']) ? $_POST['overwrite'] : null;
+            $shouldOverwrite = in_array(strtolower((string)$overwrite), ['1','true','yes','on'], true);
+            if ($shouldOverwrite) {
+                // Wrap in transaction for safety
+                $pdo->beginTransaction();
+                try {
+                    // Remove existing inspection assets and batches
+                    $pdo->exec('DELETE FROM asset_inspections');
+                    $pdo->exec('DELETE FROM asset_upload_batches');
+                    // Reset department cached totals if any
+                    if ($pdo->query("SHOW COLUMNS FROM departments LIKE 'total_assets'")->rowCount() > 0) {
+                        $pdo->exec('UPDATE departments SET total_assets = 0');
+                    }
+                    $pdo->commit();
+                } catch (Throwable $e) {
+                    $pdo->rollBack();
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Failed to clear previous data: ' . $e->getMessage()]);
+                    break;
+                }
+            }
+
             // Handle multiple files or single file
             $files = [];
             if (isset($_FILES['files'])) {
@@ -228,7 +251,8 @@ try {
             foreach ($allData as $row) {
                 $label = $row['Label'] ?? '';
                 $jenisAset = $row['Jenis Aset'] ?? '';
-                $pegawai = $row['Pegawai Penempatan'] ?? '';
+                // Ignore uploaded supervisor; authoritative source is Locations.supervisor
+                $pegawai = '';
                 $bahagian = $row['Bahagian'] ?? '';
                 $lokasi = $row['Lokasi Terkini'] ?? '';
                 

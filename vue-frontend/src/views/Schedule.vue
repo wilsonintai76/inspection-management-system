@@ -175,6 +175,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import api from '../api';
+import { useAuth } from '../composables/useAuth';
 import { PageHeader, LoadingSpinner, EmptyState } from '../components';
 
 interface Department {
@@ -253,10 +254,25 @@ const canToggleStatus = computed(() => {
 });
 
 const filteredLocations = computed(() => {
-  if (!filterDepartment.value) {
-    return locations.value;
+  // Filter by department dropdown selection
+  let filtered = locations.value;
+  
+  if (filterDepartment.value) {
+    filtered = filtered.filter(loc => loc.department_id === Number(filterDepartment.value));
   }
-  return locations.value.filter(loc => loc.department_id === Number(filterDepartment.value));
+  
+  // For non-admin auditors, only show locations from departments they're allowed to audit
+  const { userRoles } = useAuth();
+  const roles = userRoles.value || [];
+  const isAuditor = roles.includes('Auditor');
+  const isAdmin = roles.includes('Admin');
+  
+  if (isAuditor && !isAdmin && departments.value.length > 0) {
+    const allowedDeptIds = departments.value.map(d => d.id);
+    filtered = filtered.filter(loc => allowedDeptIds.includes(loc.department_id));
+  }
+  
+  return filtered;
 });
 
 function getDepartmentName(departmentId: number): string {
@@ -595,8 +611,25 @@ async function removeAuditor(locationId: number, slotIndex: number) {
 }
 
 async function fetchDepartments() {
-  const response = await api.get('/departments.php');
-  departments.value = response.data;
+  // Check if user is an auditor (non-admin)
+  const { userId, userRoles } = useAuth();
+  const roles = userRoles.value || [];
+  const isAuditor = roles.includes('Auditor');
+  const isAdmin = roles.includes('Admin');
+  
+  if (isAuditor && !isAdmin) {
+    // Non-admin auditor: fetch only allowed departments based on cross-audit assignments
+    const response = await api.get(`/auditor-allowed-departments.php?auditor_id=${userId.value}`);
+    departments.value = response.data.allowed_departments || [];
+    
+    if (departments.value.length === 0) {
+      console.warn('No cross-audit assignments found for this auditor');
+    }
+  } else {
+    // Admin or non-auditor: fetch all departments
+    const response = await api.get('/departments.php');
+    departments.value = response.data;
+  }
 }
 
 async function fetchLocations() {

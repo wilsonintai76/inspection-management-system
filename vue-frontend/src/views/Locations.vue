@@ -134,18 +134,32 @@
             type="text" 
             placeholder="e.g., HITECH Lab" 
             class="input input-bordered w-full"
+            :disabled="!!editingLocation"
+            :class="{ 'input-disabled': !!editingLocation }"
           />
+          <label v-if="editingLocation" class="label">
+            <span class="label-text-alt text-warning text-xs leading-tight">⚠️ Location name cannot be edited to avoid conflicts with asset inspection data</span>
+          </label>
         </div>
         <div class="form-control">
           <label class="label">
             <span class="label-text font-medium">Department *</span>
           </label>
-          <select id="department" v-model="formData.department_id" class="select select-bordered w-full" :disabled="deptRestricted">
+          <select 
+            id="department" 
+            v-model="formData.department_id" 
+            class="select select-bordered w-full" 
+            :disabled="deptRestricted || !!editingLocation"
+            :class="{ 'select-disabled': deptRestricted || !!editingLocation }"
+          >
             <option value="">Select department...</option>
             <option v-for="dept in departments" :key="dept.id" :value="dept.id">
               {{ dept.name }}
             </option>
           </select>
+          <label v-if="editingLocation" class="label">
+            <span class="label-text-alt text-warning text-xs leading-tight">⚠️ Department cannot be changed to avoid conflicts with asset inspection data</span>
+          </label>
         </div>
         <div class="form-control">
           <label class="label">
@@ -357,18 +371,21 @@ async function saveLocation() {
   if (!isFormValid.value) return;
 
   try {
-    const data = {
-      name: formData.value.name.trim(),
-      department_id: deptRestricted.value ? Number(userDeptId.value) : Number(formData.value.department_id),
-      supervisor: formData.value.supervisor.trim() || null,
-      contact_number: formData.value.contact_number.trim() || null
-    };
-
     if (editingLocation.value) {
-      // Update existing location
+      // Update existing location - only supervisor and contact_number can be changed
+      const data = {
+        supervisor: formData.value.supervisor.trim() || null,
+        contact_number: formData.value.contact_number.trim() || null
+      };
       await api.put(`/locations.php?id=${editingLocation.value.id}`, data);
     } else {
-      // Create new location
+      // Create new location - all fields required
+      const data = {
+        name: formData.value.name.trim(),
+        department_id: deptRestricted.value ? Number(userDeptId.value) : Number(formData.value.department_id),
+        supervisor: formData.value.supervisor.trim() || null,
+        contact_number: formData.value.contact_number.trim() || null
+      };
       await api.post('/locations.php', data);
     }
 

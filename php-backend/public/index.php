@@ -9,6 +9,8 @@ echo json_encode([
         '/api/inspections.php',
         '/api/users.php',
         '/api/auth_login.php',
-        '/api/change_password.php'
+        '/api/change_password.php',
+        '/api/cross-audit.php',
+        '/api/eligible-auditors.php'
     ]
 ]);

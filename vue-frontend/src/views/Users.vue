@@ -101,24 +101,24 @@
                   <div class="flex gap-2">
                     <button 
                       @click="openEditDialog(user)" 
-                      class="btn btn-xs btn-ghost"
+                      class="btn btn-sm btn-circle btn-ghost hover:bg-info hover:text-white"
                       title="Edit"
                     >
-                      <i class="fas fa-edit"></i>
+                      ✏️
                     </button>
                     <button 
                       @click="openTransferDialog(user)" 
-                      class="btn btn-xs btn-ghost"
+                      class="btn btn-sm btn-circle btn-ghost hover:bg-warning hover:text-white"
                       title="Transfer Staff ID"
                     >
-                      <i class="fas fa-exchange-alt"></i>
+                      🔄
                     </button>
                     <button 
                       @click="confirmDelete(user)" 
-                      class="btn btn-xs btn-ghost text-error"
+                      class="btn btn-sm btn-circle btn-ghost hover:bg-error hover:text-white"
                       title="Delete"
                     >
-                      <i class="fas fa-trash"></i>
+                      🗑️
                     </button>
                   </div>
                 </td>

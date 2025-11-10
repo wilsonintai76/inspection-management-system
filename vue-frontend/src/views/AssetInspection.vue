@@ -180,7 +180,7 @@
                 <tr v-for="asset in assets" :key="asset.id" :class="{ 'opacity-60': asset.is_inspected }">
                   <td class="font-semibold">{{ asset.label }}</td>
                   <td>{{ asset.jenis_aset }}</td>
-                  <td>{{ asset.pegawai_penempatan }}</td>
+                  <td>{{ asset.supervisor || '—' }}</td>
                   <td>{{ asset.bahagian }}</td>
                   <td>{{ asset.lokasi_terkini }}</td>
                 </tr>

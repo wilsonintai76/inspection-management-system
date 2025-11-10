@@ -102,17 +102,20 @@ try {
                     ? (int)$_GET['batch_id'] 
                     : null;
                 
+                // Join to locations using department + location name to derive authoritative supervisor
                 $sql = '
                     SELECT 
                         a.*,
                         d.name as department_name,
                         b.filename as batch_filename,
                         b.upload_date,
-                        u.name as inspected_by_name
+                        u.name as inspected_by_name,
+                        l.supervisor as supervisor
                     FROM asset_inspections a
                     LEFT JOIN departments d ON a.department_id = d.id
                     LEFT JOIN asset_upload_batches b ON a.batch_id = b.id
                     LEFT JOIN users u ON CAST(a.inspected_by AS CHAR) COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci
+                    LEFT JOIN locations l ON l.department_id = a.department_id AND l.name = a.lokasi_terkini
                     WHERE 1=1
                 ';
                 
@@ -137,7 +140,7 @@ try {
                     $sql .= ' AND (
                         a.label LIKE ? OR 
                         a.jenis_aset LIKE ? OR 
-                        a.pegawai_penempatan LIKE ? OR
+                        l.supervisor LIKE ? OR
                         a.lokasi_terkini LIKE ?
                     )';
                     $searchPattern = '%' . $search . '%';

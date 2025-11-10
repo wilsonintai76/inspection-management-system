@@ -22,8 +22,10 @@ try {
         exit;
     }
     
-    // Get auditors whose departments have active cross-audit assignment for this target department
-    // Exclude auditors from the target department itself (conflict of interest)
+    // Get eligible auditors:
+    // 1. Admins with Auditor role (can audit any department)
+    // 2. Auditors whose departments have active cross-audit assignment for target department
+    // Exclude non-admin auditors from the target department itself (conflict of interest)
     $stmt = $pdo->prepare('
         SELECT DISTINCT
             u.id,
@@ -33,15 +35,21 @@ try {
             u.department_id,
             d.name as own_department_name,
             d.acronym as own_department_acronym,
-            caa.id as assignment_id
+            CASE 
+                WHEN admin_ur.role = "Admin" THEN -1
+                ELSE caa.id 
+            END as assignment_id
         FROM users u
         INNER JOIN user_roles ur ON u.id = ur.user_id AND ur.role = "Auditor"
-        INNER JOIN cross_audit_assignments caa 
+        LEFT JOIN user_roles admin_ur ON u.id = admin_ur.user_id AND admin_ur.role = "Admin"
+        LEFT JOIN cross_audit_assignments caa 
             ON u.department_id = caa.auditor_department_id 
             AND caa.target_department_id = ?
             AND caa.active = 1
         LEFT JOIN departments d ON u.department_id = d.id
-        WHERE u.department_id != ? OR u.department_id IS NULL
+        WHERE 
+            admin_ur.role = "Admin" 
+            OR (caa.id IS NOT NULL AND (u.department_id != ? OR u.department_id IS NULL))
         ORDER BY u.name
     ');
     $stmt->execute([$departmentId, $departmentId]);
