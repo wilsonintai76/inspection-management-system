@@ -86,7 +86,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       <!-- Auditor Analysis -->
       <div class="card bg-base-100 shadow-md">
-        <div class="card-body">
+        <div class="p-6 space-y-2">
           <h3 class="card-title text-lg mb-2">
             <i class="fas fa-user-friends text-primary"></i>
             Auditor Analysis
