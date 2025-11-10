@@ -1,32 +1,44 @@
 <template>
-  <div class="verify-container">
-    <div class="verify-card">
-      <div v-if="loading" class="loading">
-        <div class="spinner"></div>
-        <p>Verifying your email...</p>
-      </div>
-
-      <div v-else-if="success" class="success">
-        <div class="icon-success">✓</div>
-        <h2>Email Verified!</h2>
-        <p>Welcome to Inspectable, {{ userName }}!</p>
-        <div class="staff-id-box">
-          <p class="label">Your Staff ID</p>
-          <p class="staff-id">{{ staffId }}</p>
+  <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div class="card w-full max-w-md bg-base-100 shadow-xl">
+      <div class="card-body items-center text-center">
+        <div v-if="loading" class="flex flex-col items-center gap-4">
+          <span class="loading loading-spinner loading-lg text-primary"></span>
+          <p class="text-lg">Verifying your email...</p>
         </div>
-        <p class="info">You can now log in using your Staff ID and password.</p>
-        <router-link to="/login" class="btn-primary">Go to Login</router-link>
-      </div>
 
-      <div v-else-if="error" class="error">
-        <div class="icon-error">✕</div>
-        <h2>Verification Failed</h2>
-        <p>{{ errorMessage }}</p>
-        <div class="actions">
-          <router-link to="/login" class="btn-secondary">Back to Login</router-link>
-          <button v-if="canResend" @click="resendVerification" class="btn-primary" :disabled="resending">
-            {{ resending ? 'Sending...' : 'Resend Verification Email' }}
-          </button>
+        <div v-else-if="success" class="flex flex-col items-center gap-4">
+          <div class="rounded-full bg-success text-success-content w-16 h-16 flex items-center justify-center text-3xl">
+            ✓
+          </div>
+          <h2 class="card-title text-2xl">Email Verified!</h2>
+          <p class="text-lg">Welcome to Inspectable, {{ userName }}!</p>
+          <div class="alert alert-info w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <div class="text-sm font-semibold">Your Staff ID</div>
+              <div class="text-2xl font-bold">{{ staffId }}</div>
+            </div>
+          </div>
+          <p class="opacity-70">You can now log in using your Staff ID and password.</p>
+          <router-link to="/login" class="btn btn-primary w-full mt-4">Go to Login</router-link>
+        </div>
+
+        <div v-else-if="error" class="flex flex-col items-center gap-4">
+          <div class="rounded-full bg-error text-error-content w-16 h-16 flex items-center justify-center text-3xl">
+            ✕
+          </div>
+          <h2 class="card-title text-2xl">Verification Failed</h2>
+          <p class="opacity-70">{{ errorMessage }}</p>
+          <div class="flex flex-col gap-2 w-full mt-4">
+            <router-link to="/login" class="btn btn-outline w-full">Back to Login</router-link>
+            <button v-if="canResend" @click="resendVerification" class="btn btn-primary w-full" :disabled="resending">
+              <span v-if="resending" class="loading loading-spinner"></span>
+              {{ resending ? 'Sending...' : 'Resend Verification Email' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>

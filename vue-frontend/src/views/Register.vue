@@ -1,109 +1,149 @@
 <template>
-  <div class="auth-container">
-    <div class="auth-card">
-      <h2>Create Account</h2>
-      <p class="subtitle">Register for Inspectable</p>
+  <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div class="card w-full max-w-2xl bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-3xl justify-center mb-2">Create Account</h2>
+        <p class="text-center opacity-70 mb-6">Register for Inspectable</p>
 
-      <div v-if="successMessage" class="alert alert-success">
-        {{ successMessage }}
-      </div>
-
-      <div v-if="errorMessage" class="alert alert-error">
-        {{ errorMessage }}
-      </div>
-
-      <form @submit.prevent="handleRegister" v-if="!successMessage">
-        <div class="form-group">
-          <label for="name">Full Name *</label>
-          <input
-            type="text"
-            id="name"
-            v-model="formData.name"
-            placeholder="Enter your full name"
-            required
-            autocomplete="name"
-          />
+        <div v-if="successMessage" class="alert alert-success mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{{ successMessage }}</span>
         </div>
 
-        <div class="form-group">
-          <label for="staff_id">Staff ID *</label>
-          <input
-            type="text"
-            id="staff_id"
-            v-model="formData.staff_id"
-            placeholder="4-digit Staff ID"
-            pattern="\d{4}"
-            maxlength="4"
-            required
-            autocomplete="off"
-          />
-          <small>Must be exactly 4 digits</small>
+        <div v-if="errorMessage" class="alert alert-error mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{{ errorMessage }}</span>
         </div>
 
-        <div class="form-group">
-          <label for="email">Institutional Email *</label>
-          <input
-            type="email"
-            id="email"
-            v-model="formData.email"
-            placeholder="your.name@institution.edu"
-            required
-            autocomplete="email"
-          />
-        </div>
+        <form @submit.prevent="handleRegister" v-if="!successMessage" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label" for="name">
+                <span class="label-text">Full Name *</span>
+              </label>
+              <input
+                type="text"
+                id="name"
+                v-model="formData.name"
+                placeholder="Enter your full name"
+                class="input input-bordered w-full"
+                required
+                autocomplete="name"
+              />
+            </div>
 
-        <div class="form-group">
-          <label for="phone">Phone Number</label>
-          <input
-            type="tel"
-            id="phone"
-            v-model="formData.phone"
-            placeholder="+1234567890"
-            autocomplete="tel"
-          />
-        </div>
+            <div class="form-control">
+              <label class="label" for="staff_id">
+                <span class="label-text">Staff ID *</span>
+              </label>
+              <input
+                type="text"
+                id="staff_id"
+                v-model="formData.staff_id"
+                placeholder="4-digit Staff ID"
+                pattern="\d{4}"
+                maxlength="4"
+                class="input input-bordered w-full"
+                required
+                autocomplete="off"
+              />
+              <label class="label">
+                <span class="label-text-alt">Must be exactly 4 digits</span>
+              </label>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="department">Department</label>
-          <select id="department" v-model="formData.department_id">
-            <option value="">Select Department (Optional)</option>
-            <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-              {{ dept.name }}
-            </option>
-          </select>
-        </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label" for="email">
+                <span class="label-text">Institutional Email *</span>
+              </label>
+              <input
+                type="email"
+                id="email"
+                v-model="formData.email"
+                placeholder="your.name@institution.edu"
+                class="input input-bordered w-full"
+                required
+                autocomplete="email"
+              />
+            </div>
 
-        <div class="form-group">
-          <label for="password">Password *</label>
-          <input
-            type="password"
-            id="password"
-            v-model="formData.password"
-            placeholder="Minimum 8 characters"
-            required
-            autocomplete="new-password"
-          />
-        </div>
+            <div class="form-control">
+              <label class="label" for="phone">
+                <span class="label-text">Phone Number</span>
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                v-model="formData.phone"
+                placeholder="+1234567890"
+                class="input input-bordered w-full"
+                autocomplete="tel"
+              />
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="confirm_password">Confirm Password *</label>
-          <input
-            type="password"
-            id="confirm_password"
-            v-model="formData.confirm_password"
-            placeholder="Re-enter password"
-            required
-            autocomplete="new-password"
-          />
-        </div>
+          <div class="form-control">
+            <label class="label" for="department">
+              <span class="label-text">Department</span>
+            </label>
+            <select id="department" v-model="formData.department_id" class="select select-bordered w-full">
+              <option value="">Select Department (Optional)</option>
+              <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                {{ dept.name }}
+              </option>
+            </select>
+          </div>
 
-        <button type="submit" class="btn-primary" :disabled="loading">
-          {{ loading ? 'Creating Account...' : 'Register' }}
-        </button>
-      </form>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label" for="password">
+                <span class="label-text">Password *</span>
+              </label>
+              <input
+                type="password"
+                id="password"
+                v-model="formData.password"
+                placeholder="Minimum 8 characters"
+                class="input input-bordered w-full"
+                required
+                autocomplete="new-password"
+              />
+            </div>
 
-      <div class="auth-footer">
-        <p>Already have an account? <router-link to="/login">Log in</router-link></p>
+            <div class="form-control">
+              <label class="label" for="confirm_password">
+                <span class="label-text">Confirm Password *</span>
+              </label>
+              <input
+                type="password"
+                id="confirm_password"
+                v-model="formData.confirm_password"
+                placeholder="Re-enter password"
+                class="input input-bordered w-full"
+                required
+                autocomplete="new-password"
+              />
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-full" :disabled="loading">
+            <span v-if="loading" class="loading loading-spinner"></span>
+            {{ loading ? 'Creating Account...' : 'Register' }}
+          </button>
+        </form>
+
+        <div class="divider"></div>
+        
+        <p class="text-center">
+          Already have an account? 
+          <router-link to="/login" class="link link-primary">Log in</router-link>
+        </p>
       </div>
     </div>
   </div>
