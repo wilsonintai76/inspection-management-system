@@ -90,21 +90,37 @@
                     >
                       <i class="fas fa-user text-base-content/60"></i>
                       
-                      <!-- Admin: Show dropdown to assign any auditor -->
-                      <select 
-                        v-if="isAdmin && auditor.isEmpty"
-                        @change="assignAuditor(location.id, index, $event)"
-                        class="select select-bordered select-sm"
-                      >
-                        <option value="">Select Auditor...</option>
-                        <option 
-                          v-for="user in auditorUsers" 
-                          :key="user.id" 
-                          :value="user.id"
+                      <!-- Admin: Show searchable dropdown to assign any auditor -->
+                      <div v-if="isAdmin && auditor.isEmpty" class="relative">
+                        <input 
+                          type="text"
+                          :value="getAuditorSearchValue(location.id, index)"
+                          @input="handleAuditorSearch(location.id, index, $event)"
+                          @focus="showAuditorDropdown(location.id, index)"
+                          @blur="hideAuditorDropdown(location.id, index)"
+                          placeholder="Type to search auditor..."
+                          class="input input-bordered input-sm w-48"
+                        />
+                        <div 
+                          v-if="isAuditorDropdownVisible(location.id, index)"
+                          class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-48 overflow-y-auto"
                         >
-                          {{ user.name }}
-                        </option>
-                      </select>
+                          <div 
+                            v-for="user in getFilteredAuditors(location.id, index)" 
+                            :key="user.id"
+                            @mousedown="selectAuditor(location.id, index, user.id)"
+                            class="px-3 py-2 hover:bg-base-200 cursor-pointer text-sm"
+                          >
+                            {{ user.name }}
+                          </div>
+                          <div 
+                            v-if="getFilteredAuditors(location.id, index).length === 0"
+                            class="px-3 py-2 text-sm text-base-content/50"
+                          >
+                            No auditors found
+                          </div>
+                        </div>
+                      </div>
                       
                       <!-- Show label for assigned auditor -->
                       <span v-if="!auditor.isEmpty" class="text-sm">{{ auditor.name }}</span>
@@ -202,6 +218,10 @@ const loading = ref(false);
 const error = ref('');
 const filterDepartment = ref('');
 
+// Auditor search state
+const auditorSearchQueries = ref<Record<string, string>>({});
+const auditorDropdownVisible = ref<Record<string, boolean>>({});
+
 const isAuditor = computed(() => {
   if (!currentUser.value || !currentUser.value.roles) {
     console.log('isAuditor: false - no user or roles', currentUser.value);
@@ -256,6 +276,109 @@ function getInspectionDate(locationId: number): string {
 function getInspectionStatus(locationId: number): string {
   const inspection = inspectionMap.value[locationId];
   return inspection?.status || 'Pending';
+}
+
+// Auditor search helper functions
+function getDropdownKey(locationId: number, slotIndex: number): string {
+  return `${locationId}-${slotIndex}`;
+}
+
+function getAuditorSearchValue(locationId: number, slotIndex: number): string {
+  const key = getDropdownKey(locationId, slotIndex);
+  return auditorSearchQueries.value[key] || '';
+}
+
+function handleAuditorSearch(locationId: number, slotIndex: number, event: Event) {
+  const key = getDropdownKey(locationId, slotIndex);
+  const target = event.target as HTMLInputElement;
+  auditorSearchQueries.value[key] = target.value;
+}
+
+function showAuditorDropdown(locationId: number, slotIndex: number) {
+  const key = getDropdownKey(locationId, slotIndex);
+  auditorDropdownVisible.value[key] = true;
+}
+
+function hideAuditorDropdown(locationId: number, slotIndex: number) {
+  const key = getDropdownKey(locationId, slotIndex);
+  setTimeout(() => {
+    auditorDropdownVisible.value[key] = false;
+  }, 200);
+}
+
+function isAuditorDropdownVisible(locationId: number, slotIndex: number): boolean {
+  const key = getDropdownKey(locationId, slotIndex);
+  return auditorDropdownVisible.value[key] || false;
+}
+
+function getFilteredAuditors(locationId: number, slotIndex: number): User[] {
+  const searchQuery = getAuditorSearchValue(locationId, slotIndex).toLowerCase();
+  if (!searchQuery) {
+    return auditorUsers.value;
+  }
+  return auditorUsers.value.filter(user => 
+    user.name.toLowerCase().includes(searchQuery)
+  );
+}
+
+async function selectAuditor(locationId: number, slotIndex: number, userId: string) {
+  const key = getDropdownKey(locationId, slotIndex);
+  
+  // Clear search and hide dropdown
+  auditorSearchQueries.value[key] = '';
+  auditorDropdownVisible.value[key] = false;
+  
+  if (!userId) return;
+  
+  try {
+    let inspection = inspectionMap.value[locationId];
+    const auditorField = slotIndex === 0 ? 'auditor1_id' : 'auditor2_id';
+    const otherField = slotIndex === 0 ? 'auditor2_id' : 'auditor1_id';
+    
+    // Check if user is already assigned
+    if (inspection?.[auditorField] === userId || inspection?.[otherField] === userId) {
+      alert('This auditor is already assigned to this inspection.');
+      return;
+    }
+    
+    const inspectionDate = inspection?.inspection_date || new Date().toISOString().split('T')[0];
+    
+    if (inspection && inspection.id) {
+      // Update existing inspection
+      const updateData: any = {
+        location_id: locationId,
+        inspection_date: inspectionDate,
+        status: inspection.status
+      };
+      updateData[auditorField] = userId;
+      updateData[otherField] = inspection[otherField];
+      
+      await api.put(`/inspections.php?id=${inspection.id}`, updateData);
+      inspection[auditorField] = userId;
+    } else {
+      // Create new inspection with auditor
+      const createData: any = {
+        location_id: locationId,
+        inspection_date: inspectionDate,
+        status: 'Pending'
+      };
+      createData[auditorField] = userId;
+      createData[otherField] = null;
+      
+      const response = await api.post('/inspections.php', createData);
+      
+      const newInspection: Inspection = {
+        id: response.data.id,
+        ...createData
+      };
+      
+      inspections.value.push(newInspection);
+      inspectionMap.value[locationId] = newInspection;
+    }
+  } catch (err) {
+    console.error('Error assigning auditor:', err);
+    alert('Failed to assign auditor.');
+  }
 }
 
 async function toggleInspectionStatus(locationId: number) {
@@ -375,72 +498,6 @@ async function updateInspectionDate(locationId: number, event: Event) {
   } catch (err) {
     console.error('Error updating inspection date:', err);
     alert('Failed to update inspection date.');
-  }
-}
-
-async function assignAuditor(locationId: number, slotIndex: number, event: Event) {
-  if (!isAdmin.value) {
-    alert('Only admins can assign auditors.');
-    return;
-  }
-  
-  const target = event.target as HTMLSelectElement;
-  const userId = target.value;
-  
-  if (!userId) return;
-  
-  try {
-    let inspection = inspectionMap.value[locationId];
-    const auditorField = slotIndex === 0 ? 'auditor1_id' : 'auditor2_id';
-    const otherField = slotIndex === 0 ? 'auditor2_id' : 'auditor1_id';
-    
-    // Check if user is already assigned
-    if (inspection?.[auditorField] === userId || inspection?.[otherField] === userId) {
-      alert('This auditor is already assigned to this inspection.');
-      target.value = ''; // Reset select
-      return;
-    }
-    
-    const inspectionDate = inspection?.inspection_date || new Date().toISOString().split('T')[0];
-    
-    if (inspection && inspection.id) {
-      // Update existing inspection
-      const updateData: any = {
-        location_id: locationId,
-        inspection_date: inspectionDate,
-        status: inspection.status
-      };
-      updateData[auditorField] = userId;
-      updateData[otherField] = inspection[otherField];
-      
-      await api.put(`/inspections.php?id=${inspection.id}`, updateData);
-      inspection[auditorField] = userId;
-    } else {
-      // Create new inspection with auditor
-      const createData: any = {
-        location_id: locationId,
-        inspection_date: inspectionDate,
-        status: 'Pending'
-      };
-      createData[auditorField] = userId;
-      createData[otherField] = null;
-      
-      const response = await api.post('/inspections.php', createData);
-      
-      const newInspection: Inspection = {
-        id: response.data.id,
-        ...createData
-      };
-      
-      inspections.value.push(newInspection);
-      inspectionMap.value[locationId] = newInspection;
-    }
-    
-    // Reset select
-    target.value = '';
-  } catch (err) {
-    console.error('Error assigning auditor:', err);
-    alert('Failed to assign auditor.');
   }
 }
 
