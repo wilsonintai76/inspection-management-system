@@ -83,7 +83,7 @@
                   </div>
                 </td>
                 <td>
-                  <Badge variant="info" :label="getDepartmentName(location.department_id)" />
+                  <span class="text-sm">{{ getDepartmentName(location.department_id) }}</span>
                 </td>
                 <td class="text-gray-600">
                   {{ location.supervisor || '—' }}
