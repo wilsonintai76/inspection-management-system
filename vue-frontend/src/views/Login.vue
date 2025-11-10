@@ -3,7 +3,8 @@
     <header class="sticky top-0 z-20 bg-white border-b border-gray-200">
       <div class="navbar max-w-7xl mx-auto px-6">
         <div class="navbar-start">
-          <span class="text-2xl"></span>
+          <img v-if="logoExists" src="/logo.png" alt="Logo" class="h-8 w-auto" />
+          <span v-else class="text-2xl">🔍</span>
           <span class="font-bold text-xl ml-2">INSPECTABLE</span>
         </div>
         <div class="navbar-end hidden md:flex">
@@ -174,6 +175,7 @@ const password = ref('');
 const rememberMe = ref(false);
 const isLoading = ref(false);
 const error = ref('');
+const logoExists = ref(true); // Set to true if you have a logo, false to use emoji fallback
 
 async function handleLogin() {
   error.value = '';
