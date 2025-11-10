@@ -26,8 +26,9 @@
           Inspection Schedule
         </h2>
         <div class="overflow-x-auto">
-          <table class="table table-zebra">
-            <thead>
+          <div class="max-h-[28rem] overflow-y-auto pr-2">
+            <table class="table table-zebra table-sm">
+              <thead class="sticky top-0 bg-base-100 z-10">
               <tr>
                 <th class="cursor-pointer hover:bg-base-200">
                   Location <span class="ml-1 text-xs">⇅</span>
@@ -37,8 +38,8 @@
                 </th>
                 <th>Auditors</th>
               </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody>
               <tr v-for="row in scheduleRows" :key="row.id">
                 <td>
                   <div class="flex flex-col gap-1">
@@ -74,8 +75,9 @@
               <tr v-if="scheduleRows.length === 0">
                 <td colspan="3" class="text-center text-base-content/50">No locations found</td>
               </tr>
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -89,15 +91,16 @@
             <i class="fas fa-user-friends text-primary"></i>
             Auditor Analysis
           </h3>
-          <p class="text-sm text-base-content/60 mb-4">Number of locations each auditor is assigned to.</p>
-          <table class="table">
-            <thead>
+          <p class="text-sm text-base-content/60 mb-2">Number of locations each auditor is assigned to.</p>
+          <div class="max-h-[24rem] overflow-y-auto pr-2">
+            <table class="table table-sm">
+              <thead class="sticky top-0 bg-base-100 z-10">
               <tr>
                 <th>Auditor Name</th>
                 <th class="text-right">No. of Locations</th>
               </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody>
               <tr v-for="auditor in auditorStats" :key="auditor.name">
                 <td>{{ auditor.name }}</td>
                 <td class="text-right font-semibold">{{ auditor.count }}</td>
@@ -105,8 +108,9 @@
               <tr v-if="auditorStats.length === 0">
                 <td colspan="2" class="text-center text-base-content/50">No data available</td>
               </tr>
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -118,7 +122,7 @@
             Location Inspection Status
           </h3>
           <p class="text-sm text-base-content/60 mb-4">Department inspection progress.</p>
-          <div class="max-h-96 overflow-y-auto pr-2 space-y-4">
+          <div class="max-h-96 overflow-y-auto pr-2 space-y-3">
             <div v-for="dept in departmentProgress" :key="dept.name" class="space-y-2">
               <div class="flex justify-between items-center">
                 <span class="font-medium text-sm">{{ dept.name }}</span>
@@ -152,8 +156,9 @@
         <LoadingSpinner v-if="loadingAssets" message="Loading asset data..." />
 
         <div v-else class="overflow-x-auto">
-          <table class="table table-zebra">
-            <thead>
+          <div class="max-h-[28rem] overflow-y-auto pr-2">
+            <table class="table table-zebra table-sm">
+              <thead class="sticky top-0 bg-base-100 z-10">
               <tr>
                 <th>Department</th>
                 <th>Total Assets</th>
@@ -161,8 +166,8 @@
                 <th>Not Inspected</th>
                 <th>Percentage</th>
               </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody>
               <tr v-for="row in assetSummary" :key="row.department_id">
                 <td class="font-semibold">{{ row.department_name }}</td>
                 <td>{{ row.total_assets }}</td>
@@ -184,8 +189,9 @@
               <tr v-if="assetSummary.length === 0">
                 <td colspan="5" class="text-center text-base-content/50">No asset data available</td>
               </tr>
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
