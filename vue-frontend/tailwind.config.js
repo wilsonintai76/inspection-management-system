@@ -16,11 +16,14 @@ export default {
     },
   },
   corePlugins: {
-    preflight: false, // avoid interfering with existing custom CSS
+    preflight: true, // Enable preflight for DaisyUI to work properly
   },
   plugins: [daisyui],
   daisyui: {
     themes: ["light", "dark"],
     prefix: "tw-", // Apply the same prefix to DaisyUI components
+    styled: true,
+    base: true,
+    utils: true,
   }
 }
