@@ -94,7 +94,7 @@
           <p class="text-sm text-base-content/60 mb-2">Number of locations each auditor is assigned to.</p>
           <div class="max-h-[24rem] overflow-y-auto pr-2">
             <table class="table table-sm">
-              <thead class="sticky top-0 bg-base-100 z-10">
+              <thead>
               <tr>
                 <th>Auditor Name</th>
                 <th class="text-right">No. of Locations</th>
