@@ -1,101 +1,112 @@
 <template>
-  <div class="profile-page">
+  <div class="p-6 max-w-6xl mx-auto">
     <!-- Page Header -->
-    <div class="page-header">
-      <div class="header-left">
-        <span class="breadcrumb-icon">👤</span>
-        <h1 class="page-title">Profile</h1>
-      </div>
-    </div>
+    <PageHeader 
+      icon="👤" 
+      title="Profile"
+      subtitle="Manage your account information and preferences"
+    />
 
     <!-- Loading State -->
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>Loading profile...</p>
-    </div>
+    <LoadingSpinner v-if="loading" message="Loading profile..." />
 
     <!-- Profile Content -->
-    <div v-else class="profile-content">
+    <div v-else class="flex flex-col gap-6">
       <!-- Profile Information Card -->
-      <div class="profile-card">
-        <div class="card-header">
-          <h2 class="card-title">Profile Information</h2>
-        </div>
+      <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <div class="avatar-section">
-            <div class="avatar-large">
-              {{ getInitials(profileData.name) }}
+          <h2 class="card-title text-xl mb-6">Profile Information</h2>
+          
+          <div class="flex items-center gap-6 pb-6 mb-6 border-b border-gray-200">
+            <div class="avatar placeholder">
+              <div class="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-full w-20">
+                <span class="text-2xl font-bold">{{ getInitials(profileData.name) }}</span>
+              </div>
             </div>
-            <div class="avatar-info">
-              <h3>{{ profileData.name }}</h3>
-              <p class="user-roles">{{ formatRoles(profileData.roles) }}</p>
+            <div>
+              <h3 class="text-2xl font-semibold text-gray-900">{{ profileData.name }}</h3>
+              <p class="text-gray-600">{{ formatRoles(profileData.roles) }}</p>
             </div>
           </div>
 
-          <form @submit.prevent="updateProfile" class="profile-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="name">Full Name *</label>
+          <form @submit.prevent="updateProfile" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Full Name *</span>
+                </label>
                 <input 
                   id="name"
                   v-model="profileData.name" 
                   type="text" 
-                  class="form-input"
+                  class="input input-bordered w-full"
                   required
                 />
               </div>
-              <div class="form-group">
-                <label for="email">Institution Email</label>
+              
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Institution Email</span>
+                </label>
                 <input 
                   id="email"
                   v-model="profileData.email" 
                   type="email" 
-                  class="form-input"
+                  class="input input-bordered w-full"
                   disabled
                 />
-                <small class="field-hint">Email cannot be changed</small>
+                <label class="label">
+                  <span class="label-text-alt opacity-70">Email cannot be changed</span>
+                </label>
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label for="personal-email">Personal Email</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Personal Email</span>
+                </label>
                 <input 
                   id="personal-email"
                   v-model="profileData.personal_email" 
                   type="email" 
-                  class="form-input"
+                  class="input input-bordered w-full"
                   placeholder="your.email@gmail.com"
                 />
               </div>
-              <div class="form-group">
-                <label for="phone">Mobile Phone</label>
+              
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Mobile Phone</span>
+                </label>
                 <input 
                   id="phone"
                   v-model="profileData.phone" 
                   type="text" 
-                  class="form-input"
+                  class="input input-bordered w-full"
                   placeholder="e.g., 012-3456789"
                 />
               </div>
             </div>
 
-            <div class="form-row">
-
-              <div class="form-group">
-                <label for="department">Department</label>
-                <select id="department" v-model="profileData.department_id" class="form-select" disabled>
-                  <option value="">Select department...</option>
-                  <option v-for="dept in departments" :key="dept.id" :value="dept.id">
-                    {{ dept.name }}
-                  </option>
-                </select>
-                <small class="field-hint">Contact admin to change department</small>
-              </div>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Department</span>
+              </label>
+              <select id="department" v-model="profileData.department_id" class="select select-bordered w-full" disabled>
+                <option value="">Select department...</option>
+                <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                  {{ dept.name }}
+                </option>
+              </select>
+              <label class="label">
+                <span class="label-text-alt opacity-70">Contact admin to change department</span>
+              </label>
             </div>
 
-            <div class="form-actions">
-              <button type="submit" class="btn-save" :disabled="saving">
+            <div class="flex justify-end">
+              <button type="submit" class="btn btn-primary" :disabled="saving">
+                <span v-if="saving" class="loading loading-spinner"></span>
                 {{ saving ? 'Saving...' : 'Save Changes' }}
               </button>
             </div>
@@ -104,49 +115,57 @@
       </div>
 
       <!-- Change Password Card -->
-      <div class="profile-card">
-        <div class="card-header">
-          <h2 class="card-title">Change Password</h2>
-        </div>
+      <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <form @submit.prevent="changePassword" class="password-form">
-            <div class="form-group">
-              <label for="current-password">Current Password *</label>
+          <h2 class="card-title text-xl mb-6">Change Password</h2>
+          
+          <form @submit.prevent="changePassword" class="space-y-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Current Password *</span>
+              </label>
               <input 
                 id="current-password"
                 v-model="passwordData.currentPassword" 
                 type="password" 
-                class="form-input"
+                class="input input-bordered w-full"
                 required
               />
             </div>
 
-            <div class="form-group">
-              <label for="new-password">New Password *</label>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">New Password *</span>
+              </label>
               <input 
                 id="new-password"
                 v-model="passwordData.newPassword" 
                 type="password" 
-                class="form-input"
+                class="input input-bordered w-full"
                 minlength="8"
                 required
               />
-              <small class="field-hint">Minimum 8 characters</small>
+              <label class="label">
+                <span class="label-text-alt opacity-70">Minimum 8 characters</span>
+              </label>
             </div>
 
-            <div class="form-group">
-              <label for="confirm-password">Confirm New Password *</label>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Confirm New Password *</span>
+              </label>
               <input 
                 id="confirm-password"
                 v-model="passwordData.confirmPassword" 
                 type="password" 
-                class="form-input"
+                class="input input-bordered w-full"
                 required
               />
             </div>
 
-            <div class="form-actions">
-              <button type="submit" class="btn-save" :disabled="changingPassword">
+            <div class="flex justify-end pt-2">
+              <button type="submit" class="btn btn-primary" :disabled="changingPassword">
+                <span v-if="changingPassword" class="loading loading-spinner"></span>
                 {{ changingPassword ? 'Changing...' : 'Change Password' }}
               </button>
             </div>
@@ -155,31 +174,30 @@
       </div>
 
       <!-- Account Information Card -->
-      <div class="profile-card">
-        <div class="card-header">
-          <h2 class="card-title">Account Information</h2>
-        </div>
+      <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <div class="info-grid">
-            <div class="info-item">
-              <label>Staff ID</label>
-              <p><strong>{{ profileData.staff_id || '—' }}</strong></p>
+          <h2 class="card-title text-xl mb-6">Account Information</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <label class="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-2">Staff ID</label>
+              <p class="text-base text-gray-900 font-semibold">{{ profileData.staff_id || '—' }}</p>
             </div>
-            <div class="info-item">
-              <label>User ID</label>
-              <p>{{ profileData.id }}</p>
+            <div>
+              <label class="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-2">User ID</label>
+              <p class="text-base text-gray-900">{{ profileData.id }}</p>
             </div>
-            <div class="info-item">
-              <label>Status</label>
-              <p><span class="status-badge status-verified">{{ profileData.status || 'Verified' }}</span></p>
+            <div>
+              <label class="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-2">Status</label>
+              <Badge variant="success" :label="profileData.status || 'Verified'" />
             </div>
-            <div class="info-item">
-              <label>Account Created</label>
-              <p>{{ formatDate(profileData.created_at) }}</p>
+            <div>
+              <label class="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-2">Account Created</label>
+              <p class="text-base text-gray-900">{{ formatDate(profileData.created_at) }}</p>
             </div>
-            <div class="info-item">
-              <label>Last Updated</label>
-              <p>{{ formatDate(profileData.updated_at) }}</p>
+            <div>
+              <label class="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-2">Last Updated</label>
+              <p class="text-base text-gray-900">{{ formatDate(profileData.updated_at) }}</p>
             </div>
           </div>
         </div>
@@ -192,6 +210,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../api';
+import { PageHeader, LoadingSpinner, Badge } from '../components';
 
 interface Department {
   id: number;
@@ -377,272 +396,3 @@ onMounted(async () => {
   await Promise.all([fetchProfile(), fetchDepartments()]);
 });
 </script>
-
-<style scoped>
-.profile-page {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.page-header {
-  margin-bottom: 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.breadcrumb-icon {
-  font-size: 1.5rem;
-}
-
-.page-title {
-  font-size: 1.875rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.btn-logout {
-  padding: 0.5rem 1rem;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  color: #ef4444;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-logout:hover {
-  background: #fef2f2;
-  border-color: #fecaca;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  color: #6b7280;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f4f6;
-  border-top-color: #14b8a6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.profile-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.profile-card {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.card-header {
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.card-body {
-  padding: 2rem;
-}
-
-.avatar-section {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.avatar-large {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1.75rem;
-  flex-shrink: 0;
-}
-
-.avatar-info h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.user-roles {
-  margin: 0;
-  color: #6b7280;
-  font-size: 0.9375rem;
-}
-
-.profile-form,
-.password-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.form-group label {
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-}
-
-.form-input,
-.form-select {
-  padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  font-size: 0.9375rem;
-  color: #1f2937;
-  background: white;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.form-input:focus,
-.form-select:focus {
-  outline: none;
-  border-color: #14b8a6;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
-}
-
-.form-input:disabled,
-.form-select:disabled {
-  background: #f9fafb;
-  color: #6b7280;
-  cursor: not-allowed;
-}
-
-.field-hint {
-  margin-top: 0.375rem;
-  font-size: 0.8125rem;
-  color: #6b7280;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 0.5rem;
-}
-
-.btn-save {
-  padding: 0.75rem 1.5rem;
-  background: #14b8a6;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.btn-save:hover:not(:disabled) {
-  background: #0d9488;
-}
-
-.btn-save:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.info-item label {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: #6b7280;
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.info-item p {
-  margin: 0;
-  font-size: 0.9375rem;
-  color: #1f2937;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.375rem 0.875rem;
-  border-radius: 9999px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
-.status-verified {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-@media (max-width: 768px) {
-  .profile-page {
-    padding: 1rem;
-  }
-
-  .form-row,
-  .info-grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  .avatar-section {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-</style>
