@@ -9,6 +9,7 @@ import Schedule from '../views/Schedule.vue';
 import Locations from '../views/Locations.vue';
 // Departments settings page is replaced by the Departments (summary) view
 import Users from '../views/Users.vue';
+import UserImport from '../views/UserImport.vue';
 import Profile from '../views/Profile.vue';
 import AssetInspection from '../views/AssetInspection.vue';
 import AssetUpload from '../views/AssetUpload.vue';
@@ -55,6 +56,7 @@ const router = createRouter({
     { path: '/asset-inspection', component: AssetInspection, meta: { requiresAuth: true, permission: 'canViewAssetInspection' } },
     { path: '/asset-upload', component: AssetUpload, meta: { requiresAuth: true, permission: 'canUploadAssets' } },
     { path: '/users', component: Users, meta: { requiresAuth: true, permission: 'canViewUsers' } },
+    { path: '/user-import', component: UserImport, meta: { requiresAuth: true, permission: 'canViewUsers' } },
     { path: '/profile', component: Profile, meta: { requiresAuth: true } },
   ],
 });

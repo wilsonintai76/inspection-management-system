@@ -15,13 +15,19 @@
             <h2 class="card-title">User Management</h2>
             <p class="text-sm text-base-content/60">Manage application users, roles, and status.</p>
           </div>
-          <ActionButton 
-            @click="openAddDialog"
-            variant="success"
-            icon="fas fa-plus"
-          >
-            Add User
-          </ActionButton>
+          <div class="flex gap-2">
+            <router-link to="/user-import" class="btn btn-outline btn-primary">
+              <i class="fas fa-file-upload"></i>
+              Bulk Import
+            </router-link>
+            <ActionButton 
+              @click="openAddDialog"
+              variant="success"
+              icon="fas fa-plus"
+            >
+              Add User
+            </ActionButton>
+          </div>
         </div>
 
         <!-- Loading State -->
