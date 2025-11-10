@@ -94,8 +94,8 @@ function parse_excel($filepath) {
 try {
     switch ($method) {
         case 'POST':
-            // Upload file
-            if (!isset($_FILES['file'])) {
+            // Upload file(s) - supports single or multiple files
+            if (!isset($_FILES['files']) && !isset($_FILES['file'])) {
                 http_response_code(400);
                 echo json_encode(['error' => 'No file uploaded']);
                 break;
@@ -118,45 +118,103 @@ try {
                 break;
             }
             
-            $file = $_FILES['file'];
-            $filename = $file['name'];
-            $tmpPath = $file['tmp_name'];
-            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-            
-            // Parse file based on extension
-            if ($ext === 'csv') {
-                $result = parse_csv($tmpPath);
-            } elseif (in_array($ext, ['xlsx', 'xls'])) {
-                $result = parse_excel($tmpPath);
-            } else {
-                http_response_code(400);
-                echo json_encode(['error' => 'Invalid file type. Only CSV and Excel (.xlsx, .xls) are supported']);
-                break;
-            }
-            
-            if (isset($result['error'])) {
-                http_response_code(400);
-                echo json_encode(['error' => $result['error']]);
-                break;
-            }
-            
-            $data = $result['data'];
-            $header = $result['header'];
-            
-            // Validate required columns
-            $requiredColumns = ['Label', 'Jenis Aset', 'Pegawai Penempatan', 'Bahagian', 'Lokasi Terkini'];
-            foreach ($requiredColumns as $col) {
-                if (!in_array($col, $header)) {
-                    http_response_code(400);
-                    echo json_encode(['error' => "Missing required column: $col"]);
-                    break 2;
+            // Handle multiple files or single file
+            $files = [];
+            if (isset($_FILES['files'])) {
+                // Multiple files
+                $fileCount = count($_FILES['files']['name']);
+                for ($i = 0; $i < $fileCount; $i++) {
+                    if ($_FILES['files']['error'][$i] === UPLOAD_ERR_OK) {
+                        $files[] = [
+                            'name' => $_FILES['files']['name'][$i],
+                            'tmp_name' => $_FILES['files']['tmp_name'][$i],
+                            'error' => $_FILES['files']['error'][$i],
+                        ];
+                    }
+                }
+            } elseif (isset($_FILES['file'])) {
+                // Single file (backward compatibility)
+                if ($_FILES['file']['error'] === UPLOAD_ERR_OK) {
+                    $files[] = [
+                        'name' => $_FILES['file']['name'],
+                        'tmp_name' => $_FILES['file']['tmp_name'],
+                        'error' => $_FILES['file']['error'],
+                    ];
                 }
             }
             
-            // Create batch record
+            if (empty($files)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'No valid files to upload']);
+                break;
+            }
+            
+            // Parse all files and collect data
+            $allData = [];
+            $allFilenames = [];
+            $requiredColumns = ['Label', 'Jenis Aset', 'Pegawai Penempatan', 'Bahagian', 'Lokasi Terkini'];
+            $firstFileHeader = null;
+            
+            foreach ($files as $file) {
+                $filename = $file['name'];
+                $tmpPath = $file['tmp_name'];
+                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                
+                // Parse file based on extension
+                if ($ext === 'csv') {
+                    $result = parse_csv($tmpPath);
+                } elseif (in_array($ext, ['xlsx', 'xls'])) {
+                    $result = parse_excel($tmpPath);
+                } else {
+                    http_response_code(400);
+                    echo json_encode(['error' => "Invalid file type for '$filename'. Only CSV and Excel (.xlsx, .xls) are supported"]);
+                    break 2;
+                }
+                
+                if (isset($result['error'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => "Error in '$filename': " . $result['error']]);
+                    break 2;
+                }
+                
+                $data = $result['data'];
+                $header = $result['header'];
+                
+                // Validate required columns
+                foreach ($requiredColumns as $col) {
+                    if (!in_array($col, $header)) {
+                        http_response_code(400);
+                        echo json_encode(['error' => "Missing required column '$col' in file: $filename"]);
+                        break 3;
+                    }
+                }
+                
+                // Ensure all files have the same column structure
+                if ($firstFileHeader === null) {
+                    $firstFileHeader = $header;
+                } else {
+                    if ($header !== $firstFileHeader) {
+                        http_response_code(400);
+                        echo json_encode(['error' => "Column mismatch: All files must have the same columns. File '$filename' has different columns."]);
+                        break 2;
+                    }
+                }
+                
+                // Add data from this file
+                $allData = array_merge($allData, $data);
+                $allFilenames[] = $filename;
+            }
+            
+            // Create batch record with combined filename
             $notes = $_POST['notes'] ?? '';
+            $batchFilename = count($allFilenames) === 1 
+                ? $allFilenames[0] 
+                : count($allFilenames) . ' files: ' . implode(', ', array_map(function($name) {
+                    return strlen($name) > 30 ? substr($name, 0, 27) . '...' : $name;
+                }, $allFilenames));
+            
             $stmt = $pdo->prepare('INSERT INTO asset_upload_batches (uploaded_by, filename, total_records, notes) VALUES (?, ?, ?, ?)');
-            $stmt->execute([$uploadedBy, $filename, count($data), $notes]);
+            $stmt->execute([$uploadedBy, $batchFilename, count($allData), $notes]);
             $batchId = $pdo->lastInsertId();
             
             // Insert asset records
@@ -167,7 +225,7 @@ try {
             ');
             
             $inserted = 0;
-            foreach ($data as $row) {
+            foreach ($allData as $row) {
                 $label = $row['Label'] ?? '';
                 $jenisAset = $row['Jenis Aset'] ?? '';
                 $pegawai = $row['Pegawai Penempatan'] ?? '';
@@ -191,7 +249,10 @@ try {
                 'success' => true,
                 'batch_id' => $batchId,
                 'total_records' => $inserted,
-                'message' => "Successfully uploaded $inserted asset records"
+                'files_processed' => count($files),
+                'message' => count($files) === 1 
+                    ? "Successfully uploaded $inserted asset records"
+                    : "Successfully merged " . count($files) . " files with $inserted asset records"
             ]);
             break;
             

@@ -28,7 +28,7 @@
                 <li>Bahagian = Department</li>
                 <li>Lokasi Terkini = Current Location</li>
                 <li>First row must be headers</li>
-                <li>Manually merge multiple department files before upload</li>
+                <li><strong>Multiple files supported:</strong> Select multiple department files and they will be merged automatically</li>
               </ul>
             </div>
           </div>
@@ -38,22 +38,42 @@
               ref="fileInput"
               type="file"
               accept=".csv,.xlsx,.xls"
+              multiple
               @change="handleFileSelect"
               :disabled="uploading"
               class="hidden"
             />
             <button @click="triggerFileInput" class="btn btn-primary" :disabled="uploading">
-              {{ selectedFile ? 'Change File' : 'Select File' }}
+              {{ selectedFiles.length > 0 ? 'Add More Files' : 'Select Files' }}
             </button>
           </div>
 
-          <div v-if="selectedFile" class="alert alert-success mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <span class="font-semibold">📄 {{ selectedFile.name }}</span>
-              <span class="ml-2 opacity-70">({{ formatFileSize(selectedFile.size) }})</span>
+          <div v-if="selectedFiles.length > 0" class="mb-4 space-y-2">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="font-semibold text-gray-700">Selected Files ({{ selectedFiles.length }})</h4>
+              <button @click="clearAllFiles" class="btn btn-ghost btn-sm text-error" :disabled="uploading">
+                Clear All
+              </button>
+            </div>
+            <div v-for="(file, index) in selectedFiles" :key="index" class="alert alert-success py-2">
+              <div class="flex-1 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">📄</span>
+                  <div>
+                    <span class="font-semibold">{{ file.name }}</span>
+                    <span class="ml-2 text-sm opacity-70">({{ formatFileSize(file.size) }})</span>
+                  </div>
+                </div>
+                <button @click="removeFile(index)" class="btn btn-ghost btn-xs text-error" :disabled="uploading">
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div class="alert alert-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span class="text-sm font-medium">All files will be merged into a single batch upload</span>
             </div>
           </div>
 
@@ -74,10 +94,10 @@
           <button
             @click="uploadFile"
             class="btn btn-success w-full"
-            :disabled="!selectedFile || uploading"
+            :disabled="selectedFiles.length === 0 || uploading"
           >
             <span v-if="uploading" class="loading loading-spinner"></span>
-            {{ uploading ? 'Uploading...' : 'Upload File' }}
+            {{ uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}` }}
           </button>
 
           <div v-if="uploadProgress" class="mt-6">
@@ -95,7 +115,10 @@
               </svg>
               <div>
                 <div class="font-semibold">{{ uploadResult.message }}</div>
-                <div class="text-sm mt-1">Total records uploaded: {{ uploadResult.total_records }}</div>
+                <div class="text-sm mt-1">
+                  <div v-if="uploadResult.files_processed > 1">Files processed: {{ uploadResult.files_processed }}</div>
+                  <div>Total records uploaded: {{ uploadResult.total_records }}</div>
+                </div>
               </div>
             </div>
             <div v-else class="alert alert-error">
@@ -173,7 +196,7 @@ import { PageHeader, LoadingSpinner, EmptyState, Badge } from '../components';
 
 const router = useRouter();
 const fileInput = ref<HTMLInputElement | null>(null);
-const selectedFile = ref<File | null>(null);
+const selectedFiles = ref<File[]>([]);
 const notes = ref('');
 const uploading = ref(false);
 const uploadProgress = ref(0);
@@ -191,10 +214,24 @@ function triggerFileInput() {
 function handleFileSelect(event: Event) {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files.length > 0) {
-    selectedFile.value = target.files[0];
+    // Add new files to existing selection
+    const newFiles = Array.from(target.files);
+    selectedFiles.value = [...selectedFiles.value, ...newFiles];
     uploadResult.value = null;
     error.value = '';
+    // Reset input to allow selecting same files again
+    if (fileInput.value) fileInput.value.value = '';
   }
+}
+
+function removeFile(index: number) {
+  selectedFiles.value.splice(index, 1);
+}
+
+function clearAllFiles() {
+  selectedFiles.value = [];
+  uploadResult.value = null;
+  error.value = '';
 }
 
 function formatFileSize(bytes: number): string {
@@ -204,7 +241,7 @@ function formatFileSize(bytes: number): string {
 }
 
 async function uploadFile() {
-  if (!selectedFile.value || !userId) return;
+  if (selectedFiles.value.length === 0 || !userId) return;
 
   error.value = '';
   uploadResult.value = null;
@@ -213,7 +250,12 @@ async function uploadFile() {
 
   try {
     const formData = new FormData();
-    formData.append('file', selectedFile.value);
+    
+    // Append all files
+    selectedFiles.value.forEach((file, index) => {
+      formData.append(`files[]`, file);
+    });
+    
     formData.append('user_id', userId);
     formData.append('notes', notes.value);
 
@@ -235,13 +277,14 @@ async function uploadFile() {
 
     uploadResult.value = {
       success: true,
-      message: response.data.message || 'File uploaded successfully!',
+      message: response.data.message || 'Files uploaded and merged successfully!',
       total_records: response.data.total_records,
       batch_id: response.data.batch_id,
+      files_processed: response.data.files_processed || selectedFiles.value.length,
     };
 
     // Reset form
-    selectedFile.value = null;
+    selectedFiles.value = [];
     notes.value = '';
     if (fileInput.value) fileInput.value.value = '';
 
