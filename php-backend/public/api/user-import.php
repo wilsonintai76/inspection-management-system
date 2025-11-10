@@ -200,7 +200,11 @@ try {
             $imported = 0;
             $skipped = 0;
             $rowNumber = 1;
-            $generatedCredentials = []; // collect temp passwords to return to admin (not stored in plain text elsewhere)
+            
+            // Use single default password for all imported users (configured in config.php)
+            // This reduces email quota usage since password not emailed
+            $defaultPassword = defined('DEFAULT_IMPORT_PASSWORD') ? DEFAULT_IMPORT_PASSWORD : 'PolikuInspect@2025';
+            $passwordHash = hash_password($defaultPassword);
             
             foreach ($allData as $row) {
                 $rowNumber++;
@@ -269,10 +273,9 @@ try {
                 $userId = strtolower(str_replace(' ', '', $name)) . '_' . $staffId;
                 
                 try {
-                    // Generate secure temporary password
-                    $tempPassword = generate_password(12);
-                    $passwordHash = hash_password($tempPassword);
-                    $mustChange = 1; // force change at first login
+                    // Use default password (all users share same initial password)
+                    // must_change_password = 1 forces them to change at first login
+                    $mustChange = 1;
 
                     // Decide verification/status policy: admin bulk import -> auto-verified
                     $emailVerified = 1; // user can log in immediately
@@ -303,17 +306,6 @@ try {
                     $stmt->execute([$userId, $role]);
 
                     $imported++;
-
-                    // Collect credential (limit collection to first 200 for response size control)
-                    if (count($generatedCredentials) < 200) {
-                        $generatedCredentials[] = [
-                            'staff_id' => $staffId,
-                            'user_id' => $userId,
-                            'email' => $email,
-                            'name' => $name,
-                            'temporary_password' => $tempPassword
-                        ];
-                    }
                 } catch (PDOException $e) {
                     $errors[] = "Row $rowNumber: Database error - " . $e->getMessage();
                     $skipped++;
@@ -326,7 +318,7 @@ try {
                 'users_skipped' => $skipped,
                 'files_processed' => count($files),
                 'errors' => $errors,
-                'credentials' => $generatedCredentials,
+                'default_password' => $defaultPassword, // return default password to admin
                 'message' => count($files) === 1 
                     ? "Successfully imported $imported users" . ($skipped > 0 ? " ($skipped skipped)" : "")
                     : "Successfully processed " . count($files) . " files: imported $imported users" . ($skipped > 0 ? " ($skipped skipped)" : "")

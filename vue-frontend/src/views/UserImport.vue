@@ -145,37 +145,32 @@
             <div v-if="uploadResult.success" class="text-center mt-4">
               <router-link to="/users" class="btn btn-primary">View Users</router-link>
             </div>
-            <div v-if="uploadResult.success && generatedCredentials.length > 0" class="mt-6">
-              <h3 class="text-lg font-semibold mb-2">Generated Temporary Passwords (first {{ generatedCredentials.length }} users)</h3>
-              <div class="overflow-x-auto">
-                <table class="table table-sm">
-                  <thead>
-                    <tr>
-                      <th>Staff ID</th>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Temp Password</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="cred in generatedCredentials" :key="cred.user_id">
-                      <td class="font-medium">{{ cred.staff_id }}</td>
-                      <td>{{ cred.name }}</td>
-                      <td class="text-xs">{{ cred.email }}</td>
-                      <td><code class="px-1 bg-base-200 rounded text-xs">{{ cred.temporary_password }}</code></td>
-                    </tr>
-                  </tbody>
-                </table>
+            <div v-if="uploadResult.success && defaultPassword" class="mt-6">
+              <div class="alert alert-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div class="flex-1">
+                  <div class="font-semibold mb-2">Default Password for All Imported Users</div>
+                  <div class="font-mono text-lg bg-base-300 px-3 py-2 rounded inline-block">{{ defaultPassword }}</div>
+                  <div class="text-sm mt-3">
+                    <ul class="list-disc list-inside space-y-1">
+                      <li>All {{ uploadResult.users_imported }} imported users share this password</li>
+                      <li>Users <strong>must change password on first login</strong></li>
+                      <li>Distribute this password securely (email individually, print, etc.)</li>
+                      <li>No emails sent to preserve Brevo quota</li>
+                    </ul>
+                  </div>
+                  <div class="mt-4 flex gap-2">
+                    <button class="btn btn-outline btn-sm" @click="copyDefaultPassword">
+                      📋 Copy Password
+                    </button>
+                    <button class="btn btn-outline btn-sm" @click="downloadPasswordInfo">
+                      💾 Download Info
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="flex flex-wrap gap-2 mt-3">
-                <button class="btn btn-outline btn-sm" @click="copyCredentialsToClipboard">
-                  Copy CSV to Clipboard
-                </button>
-                <button class="btn btn-outline btn-sm" @click="downloadCredentialsCsv">
-                  Download CSV
-                </button>
-              </div>
-              <p class="text-xs mt-2 opacity-70">Passwords are shown only once. Ensure secure distribution to users and instruct them to change on first login.</p>
             </div>
           </div>
 
@@ -261,7 +256,7 @@ const notes = ref('');
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadResult = ref<any>(null);
-const generatedCredentials = ref<Array<{staff_id:string; user_id:string; email:string; name:string; temporary_password:string}>>([]);
+const defaultPassword = ref<string>(''); // single default password for all imported users
 const error = ref('');
 
 const userId = sessionStorage.getItem('userId');
@@ -338,7 +333,7 @@ async function uploadFile() {
       files_processed: response.data.files_processed || selectedFiles.value.length,
       errors: response.data.errors || [],
     };
-    generatedCredentials.value = response.data.credentials || [];
+    defaultPassword.value = response.data.default_password || '';
 
     selectedFiles.value = [];
     notes.value = '';
@@ -372,22 +367,38 @@ function downloadTemplate() {
   window.URL.revokeObjectURL(url);
 }
 
-function copyCredentialsToClipboard() {
-  const lines = generatedCredentials.value.map(c => `${c.staff_id},${c.email},${c.temporary_password}`);
-  const header = 'Staff ID,Email,Temporary Password';
-  const text = [header, ...lines].join('\n');
-  navigator.clipboard.writeText(text);
+function copyDefaultPassword() {
+  navigator.clipboard.writeText(defaultPassword.value);
+  alert('Default password copied to clipboard!');
 }
 
-function downloadCredentialsCsv() {
-  const header = 'Staff ID,Name,Email,Temporary Password';
-  const lines = generatedCredentials.value.map(c => `${c.staff_id},"${c.name}",${c.email},${c.temporary_password}`);
-  const csv = [header, ...lines].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
+function downloadPasswordInfo() {
+  const content = `Bulk User Import - Default Password
+=====================================
+
+Date: ${new Date().toLocaleString()}
+Users Imported: ${uploadResult.value?.users_imported || 0}
+
+Default Password (all users): ${defaultPassword.value}
+
+IMPORTANT:
+- All imported users share this password
+- Users MUST change password on first login
+- Distribute securely to each user
+- No verification emails sent (Brevo quota preserved)
+
+Next Steps:
+1. Distribute this password to each user individually
+2. Instruct users to login and change password
+3. Monitor first login activity
+
+`;
+
+  const blob = new Blob([content], { type: 'text/plain' });
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'generated_user_credentials.csv';
+  link.download = `user_import_password_${new Date().toISOString().split('T')[0]}.txt`;
   link.click();
   window.URL.revokeObjectURL(url);
 }

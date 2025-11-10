@@ -43,6 +43,7 @@ The Bulk User Import feature allows administrators to import multiple users at o
 3. Add optional notes
 4. Click "Import X Files"
 5. View results (imported/skipped counts)
+6. **Copy the default password** shown after import and distribute securely to users
 
 ---
 
@@ -98,6 +99,7 @@ Import multiple department files simultaneously without manual merging.
 - ✅ Faster workflow for HR/Admin
 - ✅ Process multiple departments at once
 - ✅ Single import operation
+- ✅ Single default password for all users (reduces email quota usage)
 
 ### Example Workflow
 
@@ -159,6 +161,93 @@ Errors:
 1. Export current users before import to check for duplicates
 2. Review error messages to identify skipped users
 3. Manually add skipped users if needed (update existing users in Users page)
+
+---
+
+## Password Handling (Bulk Import)
+
+When users are created via the bulk import feature:
+
+| Aspect | Behavior |
+|--------|---------|
+| Password Strategy | **Single default password** shared by all imported users (configurable in `config.php`). |
+| Default Password | `PolikuInspect@2025` (can be changed via `DEFAULT_IMPORT_PASSWORD` config). |
+| Storage | Only a bcrypt hash is stored in the `users.password_hash` column. Plain password never stored in database. |
+| First Login Requirement | `must_change_password = 1` forces user to change password immediately after first login. |
+| Verification Status | Users are marked `Verified` and `email_verified = 1` so they can log in right away. |
+| Distribution | Default password is shown once in the import success message. Admin must copy/download and distribute securely. |
+| Email Sending | **No emails sent** for bulk imports. This preserves Brevo quota for critical functions (password reset, self-registration verification). |
+| Security | If admin doesn't copy the password during import session, they can check `config.php` or reset users manually. |
+
+### Why Use Default Password Instead of Unique Passwords?
+
+**Email Quota Conservation:**
+- Brevo free tier has limited daily email quota (300/day)
+- Bulk importing 50+ users would consume entire daily quota
+- Reserves email capacity for:
+  - Password reset requests
+  - Self-registration email verification
+  - Critical notifications
+
+**Simplified Distribution:**
+- Admin only needs to communicate one password
+- Can be distributed via:
+  - Physical printed notices
+  - In-person orientation
+  - Internal messaging systems
+  - Secure department channels
+
+**Security:**
+- Users **must** change password on first login
+- Initial password acts as temporary access credential
+- Account security established when user sets personal password
+
+### Why We Auto-Verify Imported Users?
+Bulk-imported users are assumed institution staff vetted by the admin. Skipping email verification accelerates onboarding. If you prefer standard verification, adjust the backend to set `email_verified = 0` and `status = 'Unverified'`.
+
+### Recommended Distribution Process
+1. After import, click **📋 Copy Password** or **💾 Download Info**.
+2. Distribute password through secure channels:
+   - Print welcome letters for each user
+   - Announce at department meetings with written handouts
+   - Send via internal secure messaging (not email)
+   - Post in secure physical notice boards
+3. Include instructions: "Login with Staff ID, default password, then **immediately create your own password**."
+4. Monitor first-login activity to ensure users complete password changes.
+
+### If a User Forgets Before Changing Password
+- They can still use the default password if within initial access period
+- Admin can check `config.php` → `DEFAULT_IMPORT_PASSWORD` to remind user
+- If password already changed and forgotten: use normal "Forgot Password" flow
+
+### If a Password Is Lost
+- **Before user changes password:** Admin can check `config.php` → `DEFAULT_IMPORT_PASSWORD`
+- **After user changes password:** Use normal "Forgot Password" flow or admin manual reset via Users page
+
+### Changing the Default Password
+To customize the default password for bulk imports:
+1. Open `php-backend/config.php`
+2. Modify the line:
+   ```php
+   define('DEFAULT_IMPORT_PASSWORD', getenv('DEFAULT_IMPORT_PASSWORD') ?: 'YourCustomPassword@2025');
+   ```
+3. Or set environment variable `DEFAULT_IMPORT_PASSWORD`
+4. Use strong password: 12+ chars, mixed case, numbers, symbols
+5. Communicate new password to admins securely
+
+### Adjusting Policy (Optional)
+To require email verification instead:
+1. Edit `user-import.php` and change `$emailVerified = 1; $status = 'Verified';` to `$emailVerified = 0; $status = 'Unverified';`.
+2. Ensure your email sending service is configured so users receive verification links.
+
+### Future Enhancements
+| Feature | Description |
+|---------|-------------|
+| Email Notification Toggle | Optional setting to email default password to users (when quota allows). |
+| Password Expiry Policy | Auto-expire default password after X days if not changed. |
+| Bulk Password Reset | One-click force-reset for a selected group. |
+| Unique Password Option | Toggle between default vs. unique passwords (when email quota sufficient). |
+| Password Complexity Config | Customize minimum length and character requirements. |
 
 ---
 

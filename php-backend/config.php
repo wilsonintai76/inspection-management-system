@@ -23,3 +23,7 @@ define('BREVO_API_KEY', getenv('BREVO_API_KEY') ?: '');
 
 // Application URL (used for links in emails)
 define('APP_URL', getenv('APP_URL') ?: 'http://localhost:5176');
+
+// Default password for bulk-imported users
+// Users must change this on first login (must_change_password = 1)
+define('DEFAULT_IMPORT_PASSWORD', getenv('DEFAULT_IMPORT_PASSWORD') ?: 'PolikuInspect@2025');
