@@ -1,25 +1,63 @@
 <template>
-  <div class="auth-page">
-    <div class="card">
-      <h1 class="title">Reset Password</h1>
-      <p class="subtitle">Create a new password for your account.</p>
+  <div class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div class="card w-full max-w-md bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-2xl justify-center">Reset Password</h2>
+        <p class="text-center opacity-70 mb-4">Create a new password for your account.</p>
 
-      <form @submit.prevent="submit" class="form">
-        <div class="form-group">
-          <label>New Password</label>
-          <input v-model="password" type="password" placeholder="••••••••" required />
-        </div>
-        <div class="form-group">
-          <label>Confirm Password</label>
-          <input v-model="confirm" type="password" placeholder="••••••••" required />
-        </div>
+        <form @submit.prevent="submit" class="space-y-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">New Password</span>
+            </label>
+            <input 
+              v-model="password" 
+              type="password" 
+              placeholder="••••••••" 
+              class="input input-bordered w-full"
+              required 
+            />
+          </div>
 
-        <button class="btn-primary" :disabled="isSubmitting">{{ isSubmitting ? 'Saving…' : 'Set Password' }}</button>
-        <p v-if="message" class="message">{{ message }}</p>
-        <p v-if="error" class="error">{{ error }}</p>
-      </form>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Confirm Password</span>
+            </label>
+            <input 
+              v-model="confirm" 
+              type="password" 
+              placeholder="••••••••" 
+              class="input input-bordered w-full"
+              required 
+            />
+          </div>
 
-      <router-link to="/login" class="back-link">Back to Sign in</router-link>
+          <button class="btn btn-primary w-full" :disabled="isSubmitting">
+            <span v-if="isSubmitting" class="loading loading-spinner"></span>
+            {{ isSubmitting ? 'Saving…' : 'Set Password' }}
+          </button>
+
+          <div v-if="message" class="alert alert-success">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{{ message }}</span>
+          </div>
+
+          <div v-if="error" class="alert alert-error">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{{ error }}</span>
+          </div>
+        </form>
+
+        <div class="divider"></div>
+        
+        <router-link to="/login" class="link link-primary text-center block">
+          ← Back to Sign in
+        </router-link>
+      </div>
     </div>
   </div>
 </template>
@@ -64,20 +102,3 @@ async function submit() {
   }
 }
 </script>
-
-<style scoped>
-.auth-page{display:flex;min-height:100vh;align-items:center;justify-content:center;background:#f9fafb;padding:2rem}
-.card{background:#fff;padding:2rem;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.06);width:100%;max-width:420px}
-.title{margin:0 0 .5rem 0;font-size:1.5rem;color:#111827}
-.subtitle{margin:0 0 1.25rem 0;color:#6b7280;font-size:.95rem}
-.form{display:flex;flex-direction:column;gap:1rem}
-.form-group{display:flex;flex-direction:column;gap:.5rem}
-label{font-weight:600;color:#374151}
-input{padding:.75rem;border:1px solid #d1d5db;border-radius:8px;font-size:1rem}
-.btn-primary{background:#14b8a6;color:#fff;border:none;padding:.8rem;border-radius:8px;font-weight:600;cursor:pointer}
-.btn-primary:disabled{opacity:.6;cursor:not-allowed}
-.message{color:#065f46;font-size:.9rem;margin:.25rem 0 0}
-.error{color:#b91c1c;font-size:.9rem;margin:.25rem 0 0}
-.back-link{display:inline-block;margin-top:1rem;color:#14b8a6;text-decoration:none}
-.back-link:hover{text-decoration:underline}
-</style>
