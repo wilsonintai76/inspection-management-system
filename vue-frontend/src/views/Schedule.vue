@@ -192,6 +192,8 @@ interface Location {
 interface User {
   id: string;
   name: string;
+  phone?: string;
+  department_id?: number | null;
   roles?: string[];
 }
 
@@ -215,6 +217,8 @@ const inspectionMap = ref<InspectionMap>({});
 const users = ref<User[]>([]);
 const auditorUsers = ref<User[]>([]); // Users with Auditor role
 const currentUser = ref<User | null>(null);
+// Cache of eligible auditors per target department (department_id -> User[])
+const eligibleAuditorsByDept = ref<Record<number, User[]>>({});
 const loading = ref(false);
 const error = ref('');
 const filterDepartment = ref('');
@@ -329,12 +333,19 @@ function isAuditorDropdownVisible(locationId: number, slotIndex: number): boolea
 
 function getFilteredAuditors(locationId: number, slotIndex: number): User[] {
   const searchQuery = getAuditorSearchValue(locationId, slotIndex).toLowerCase();
-  if (!searchQuery) {
-    return auditorUsers.value;
+  const location = locations.value.find(l => l.id === locationId);
+  if (!location) return [];
+  const deptId = location.department_id;
+
+  // If we don't have eligible auditors for this department yet, trigger load (fire and forget)
+  if (!eligibleAuditorsByDept.value[deptId]) {
+    loadEligibleAuditors(deptId);
+    return []; // empty until loaded
   }
-  return auditorUsers.value.filter(user => 
-    user.name.toLowerCase().includes(searchQuery)
-  );
+
+  const list = eligibleAuditorsByDept.value[deptId] || [];
+  if (!searchQuery) return list;
+  return list.filter(user => user.name.toLowerCase().includes(searchQuery));
 }
 
 async function selectAuditor(locationId: number, slotIndex: number, userId: string) {
@@ -391,9 +402,10 @@ async function selectAuditor(locationId: number, slotIndex: number, userId: stri
       inspections.value.push(newInspection);
       inspectionMap.value[locationId] = newInspection;
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error assigning auditor:', err);
-    alert('Failed to assign auditor.');
+    const msg = err?.response?.data?.error || 'Failed to assign auditor (cross-audit restriction or server error).';
+    alert(msg);
   }
 }
 
@@ -402,29 +414,74 @@ async function toggleInspectionStatus(locationId: number) {
   
   try {
     const inspection = inspectionMap.value[locationId];
-    const currentStatus = inspection?.status || 'Pending';
+    
+    if (!inspection) {
+      alert('No inspection found. Please assign a date and auditors first.');
+      return;
+    }
+    
+    // Validation 1: Both auditor slots must be filled
+    if (!inspection.auditor1_id || !inspection.auditor2_id) {
+      alert('Cannot update status: Both auditor slots must be filled.');
+      return;
+    }
+    
+    // Validation 2: Must have inspection date
+    if (!inspection.inspection_date) {
+      alert('Cannot update status: Inspection date must be set.');
+      return;
+    }
+    
+    // Validation 3: Only assigned auditors can update status
+    const isAssignedAuditor = currentUser.value && (
+      currentUser.value.id === inspection.auditor1_id || 
+      currentUser.value.id === inspection.auditor2_id
+    );
+    const isAdmin = currentUser.value?.roles?.includes('Admin');
+    
+    if (!isAssignedAuditor && !isAdmin) {
+      alert('Cannot update status: Only assigned auditors can update the inspection status.');
+      return;
+    }
+    
+    // Validation 4: Current date must be on or after inspection date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    const inspectionDate = new Date(inspection.inspection_date);
+    inspectionDate.setHours(0, 0, 0, 0);
+    
+    if (today < inspectionDate) {
+      alert('Cannot update status: Current date must be on or after the inspection date.');
+      return;
+    }
+    
+    const currentStatus = inspection.status || 'Pending';
     const newStatus = currentStatus === 'Complete' ? 'Pending' : 'Complete';
     
-    if (inspection) {
-      // Update existing inspection
-      await api.put(`/inspections.php?id=${inspection.id}`, {
-        ...inspection,
-        status: newStatus
-      });
-    } else {
-      // Create new inspection with status
-      await api.post('/inspections.php', {
-        location_id: locationId,
-        status: newStatus,
-        inspection_date: new Date().toISOString().split('T')[0]
-      });
-    }
+    // Update existing inspection
+    const response = await api.put(`/inspections.php?id=${inspection.id}`, {
+      ...inspection,
+      status: newStatus
+    });
+    console.log('Update response:', response);
     
     // Refresh data
     await fetchInspections();
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error toggling status:', err);
-    alert('Failed to update status. Please try again.');
+    console.error('Error response data:', err.response?.data);
+    console.error('Error response status:', err.response?.status);
+    console.error('Error message:', err.message);
+    
+    let errorMsg = 'Failed to update status. Please try again.';
+    
+    if (err.response?.data?.error) {
+      errorMsg = err.response.data.error;
+    } else if (err.response?.data) {
+      errorMsg = JSON.stringify(err.response.data);
+    }
+    
+    alert(errorMsg);
   }
 }
 
@@ -435,8 +492,10 @@ function getLocationAuditors(locationId: number) {
   // Auditor 1
   if (inspection?.auditor1_id) {
     const user = users.value.find(u => u.id === inspection.auditor1_id);
+    const displayName = user?.name || 'Unknown';
+    const phone = user?.phone ? ` (${user.phone})` : '';
     auditors.push({
-      name: user?.name || 'Unknown',
+      name: `${displayName}${phone}`,
       isEmpty: false,
       isCurrentUser: currentUser.value?.id === inspection.auditor1_id
     });
@@ -451,8 +510,10 @@ function getLocationAuditors(locationId: number) {
   // Auditor 2
   if (inspection?.auditor2_id) {
     const user = users.value.find(u => u.id === inspection.auditor2_id);
+    const displayName = user?.name || 'Unknown';
+    const phone = user?.phone ? ` (${user.phone})` : '';
     auditors.push({
-      name: user?.name || 'Unknown',
+      name: `${displayName}${phone}`,
       isEmpty: false,
       isCurrentUser: currentUser.value?.id === inspection.auditor2_id
     });
@@ -542,6 +603,20 @@ async function assignSelfAsAuditor(locationId: number, slotIndex: number) {
     
     const inspectionDate = inspection?.inspection_date || new Date().toISOString().split('T')[0];
     
+    // Pre-validate eligibility (non-admin auditors only)
+    const location = locations.value.find(l => l.id === locationId);
+    if (location && !isAdmin.value) {
+      // ensure eligibility list loaded
+      if (!eligibleAuditorsByDept.value[location.department_id]) {
+        await loadEligibleAuditors(location.department_id);
+      }
+      const eligible = eligibleAuditorsByDept.value[location.department_id] || [];
+      if (!eligible.find(u => u.id === currentUser.value!.id)) {
+        alert('You are not eligible to audit this department (no cross-audit assignment / own department).');
+        return;
+      }
+    }
+
     if (inspection && inspection.id) {
       // Update existing inspection
       const updateData: any = {
@@ -574,9 +649,10 @@ async function assignSelfAsAuditor(locationId: number, slotIndex: number) {
       inspections.value.push(newInspection);
       inspectionMap.value[locationId] = newInspection;
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error assigning auditor:', err);
-    alert('Failed to assign auditor.');
+    const msg = err?.response?.data?.error || 'Failed to assign auditor (cross-audit restriction or server error).';
+    alert(msg);
   }
 }
 
@@ -604,9 +680,28 @@ async function removeAuditor(locationId: number, slotIndex: number) {
     
     await api.put(`/inspections.php?id=${inspection.id}`, updateData);
     inspection[auditorField] = null;
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error removing auditor:', err);
-    alert('Failed to remove auditor.');
+    const msg = err?.response?.data?.error || 'Failed to remove auditor.';
+    alert(msg);
+  }
+}
+
+// Load eligible auditors for a target department (used by admin assignment UI & self-assignment validation)
+async function loadEligibleAuditors(departmentId: number) {
+  try {
+    const response = await api.get(`/eligible-auditors.php?department_id=${departmentId}`);
+    const list: User[] = (response.data?.eligible_auditors || []).map((u: any) => ({
+      id: u.id,
+      name: u.name,
+      phone: u.phone || u.contact_number || undefined,
+      department_id: u.department_id,
+      roles: [] // roles not needed here
+    }));
+    eligibleAuditorsByDept.value[departmentId] = list;
+  } catch (e) {
+    console.error('Failed to load eligible auditors for department', departmentId, e);
+    eligibleAuditorsByDept.value[departmentId] = [];
   }
 }
 

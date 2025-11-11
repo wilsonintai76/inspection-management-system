@@ -113,40 +113,88 @@ try {
             if (!isset($_GET['id'])) { http_response_code(400); echo json_encode(['error' => 'Missing id']); break; }
             $d = get_json_body();
             
-            // Get department ID from location
-            $locationId = $d['location_id'] ?? null;
-            if ($locationId) {
-                $stmt = $pdo->prepare('SELECT department_id FROM locations WHERE id = ?');
-                $stmt->execute([$locationId]);
-                $location = $stmt->fetch();
-                $departmentId = $location ? $location['department_id'] : null;
+            // Get existing inspection to check if auditors are changing
+            $stmt = $pdo->prepare('SELECT * FROM inspections WHERE id = ?');
+            $stmt->execute([$_GET['id']]);
+            $existingInspection = $stmt->fetch();
+            
+            if (!$existingInspection) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Inspection not found']);
+                break;
+            }
+            
+            // Determine final values for validation
+            $finalAuditor1 = $d['auditor1_id'] ?? $existingInspection['auditor1_id'];
+            $finalAuditor2 = $d['auditor2_id'] ?? $existingInspection['auditor2_id'];
+            $finalStatus = $d['status'] ?? $existingInspection['status'];
+            $finalDate = $d['inspection_date'] ?? $existingInspection['inspection_date'];
+            
+            // If status is being changed to 'Complete', validate requirements
+            if ($finalStatus === 'Complete' && $existingInspection['status'] !== 'Complete') {
+                // Validation 1: Both auditor slots must be filled
+                if (!$finalAuditor1 || !$finalAuditor2) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Cannot complete inspection: Both auditor slots must be filled']);
+                    break;
+                }
                 
-                // Validate auditors can audit this department
-                if ($departmentId) {
-                    $auditor1 = $d['auditor1_id'] ?? null;
-                    $auditor2 = $d['auditor2_id'] ?? null;
+                // Validation 2: Must have inspection date
+                if (!$finalDate) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Cannot complete inspection: Inspection date must be set']);
+                    break;
+                }
+                
+                // Validation 3: Current date must be on or after inspection date
+                $today = date('Y-m-d');
+                if ($today < $finalDate) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Cannot complete inspection: Current date must be on or after the inspection date']);
+                    break;
+                }
+            }
+            
+            // Only validate cross-audit if auditors are being changed
+            $auditor1Changed = isset($d['auditor1_id']) && $d['auditor1_id'] != $existingInspection['auditor1_id'];
+            $auditor2Changed = isset($d['auditor2_id']) && $d['auditor2_id'] != $existingInspection['auditor2_id'];
+            
+            if ($auditor1Changed || $auditor2Changed) {
+                // Get department ID from location
+                $locationId = $d['location_id'] ?? $existingInspection['location_id'];
+                if ($locationId) {
+                    $stmt = $pdo->prepare('SELECT department_id FROM locations WHERE id = ?');
+                    $stmt->execute([$locationId]);
+                    $location = $stmt->fetch();
+                    $departmentId = $location ? $location['department_id'] : null;
                     
-                    if ($auditor1 && !can_audit_department($auditor1, $departmentId, $pdo)) {
-                        http_response_code(403);
-                        echo json_encode(['error' => 'Auditor 1 cannot audit this department (no cross-audit assignment or own department)']);
-                        break;
-                    }
-                    
-                    if ($auditor2 && !can_audit_department($auditor2, $departmentId, $pdo)) {
-                        http_response_code(403);
-                        echo json_encode(['error' => 'Auditor 2 cannot audit this department (no cross-audit assignment or own department)']);
-                        break;
+                    // Validate auditors can audit this department
+                    if ($departmentId) {
+                        $auditor1 = $d['auditor1_id'] ?? null;
+                        $auditor2 = $d['auditor2_id'] ?? null;
+                        
+                        if ($auditor1 && !can_audit_department($auditor1, $departmentId, $pdo)) {
+                            http_response_code(403);
+                            echo json_encode(['error' => 'Auditor 1 cannot audit this department (no cross-audit assignment or own department)']);
+                            break;
+                        }
+                        
+                        if ($auditor2 && !can_audit_department($auditor2, $departmentId, $pdo)) {
+                            http_response_code(403);
+                            echo json_encode(['error' => 'Auditor 2 cannot audit this department (no cross-audit assignment or own department)']);
+                            break;
+                        }
                     }
                 }
             }
             
             $stmt = $pdo->prepare('UPDATE inspections SET location_id = ?, inspection_date = ?, status = ?, auditor1_id = ?, auditor2_id = ? WHERE id = ?');
             $stmt->execute([
-                $d['location_id'] ?? null,
-                $d['inspection_date'] ?? date('Y-m-d'),
-                $d['status'] ?? 'Pending',
-                $d['auditor1_id'] ?? null,
-                $d['auditor2_id'] ?? null,
+                $d['location_id'] ?? $existingInspection['location_id'],
+                $d['inspection_date'] ?? $existingInspection['inspection_date'],
+                $d['status'] ?? $existingInspection['status'],
+                $d['auditor1_id'] ?? $existingInspection['auditor1_id'],
+                $d['auditor2_id'] ?? $existingInspection['auditor2_id'],
                 $_GET['id']
             ]);
             echo json_encode(['updated' => true]);

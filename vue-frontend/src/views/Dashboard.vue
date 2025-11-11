@@ -67,7 +67,6 @@
                       <span :class="{ 'text-base-content/40': !auditor.assigned }">
                         {{ auditor.name }}
                       </span>
-                      <span v-if="auditor.id" class="text-xs text-base-content/50">{{ auditor.id }}</span>
                     </div>
                   </div>
                 </td>
@@ -221,6 +220,7 @@ interface Location {
 interface User {
   id: string;
   name: string;
+  phone?: string;
 }
 
 interface Inspection {
@@ -272,6 +272,13 @@ const scheduleRows = computed(() => {
     const insp = inspectionByLocation.value[loc.id!];
     const a1 = insp?.auditor1_id ? users.value.find(u => u.id === insp.auditor1_id) : null;
     const a2 = insp?.auditor2_id ? users.value.find(u => u.id === insp.auditor2_id) : null;
+    
+    const formatAuditor = (user: User | null | undefined) => {
+      if (!user) return { name: 'Unassigned', assigned: false };
+      const phone = user.phone ? ` (${user.phone})` : '';
+      return { name: `${user.name}${phone}`, assigned: true };
+    };
+    
     return {
       id: loc.id,
       locationName: loc.name,
@@ -279,8 +286,8 @@ const scheduleRows = computed(() => {
       contact: loc.contact_number || '',
       date: insp?.inspection_date || '',
       auditors: [
-        a1 ? { name: a1.name, id: a1.id, assigned: true } : { name: 'Unassigned', assigned: false },
-        a2 ? { name: a2.name, id: a2.id, assigned: true } : { name: 'Unassigned', assigned: false },
+        formatAuditor(a1),
+        formatAuditor(a2),
       ],
     };
   });
