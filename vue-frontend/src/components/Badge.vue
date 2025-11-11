@@ -1,13 +1,18 @@
 <template>
   <span :class="badgeClasses">
-    <slot></slot>
+    <template v-if="label !== undefined && label !== null">
+      {{ label }}
+    </template>
+    <slot v-else></slot>
   </span>
+  
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 
 const props = defineProps<{
+  label?: string | number
   variant?: 'primary' | 'secondary' | 'success' | 'error' | 'warning' | 'info' | 'ghost'
   size?: 'xs' | 'sm' | 'md' | 'lg'
   outline?: boolean

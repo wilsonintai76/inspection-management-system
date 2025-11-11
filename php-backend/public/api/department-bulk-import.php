@@ -52,11 +52,15 @@ function find_or_create_location($locationName, $departmentId, $pdo) {
 }
 
 try {
-    // Optional overwrite: clear existing departments/locations and related inspection data
+    // Handle upload mode: overwrite (full reset) or append (add new only)
     $overwrite = $_POST['overwrite'] ?? null;
     $shouldOverwrite = in_array(strtolower((string)$overwrite), ['1', 'true', 'yes', 'on'], true);
     
+    $append = $_POST['append'] ?? null;
+    $shouldAppend = in_array(strtolower((string)$append), ['1', 'true', 'yes', 'on'], true);
+    
     if ($shouldOverwrite) {
+        // FULL RESET - Clear everything for annual refresh
         $pdo->beginTransaction();
         try {
             // Clear inspection-related tables if present (in order to handle FK constraints)
@@ -151,35 +155,78 @@ try {
                 continue;
             }
 
-            // Get headers (first row)
-            $headers = array_map('trim', array_map('strtolower', $rows[0]));
-            
-            // Find column indices: department and location are required; supervisor optional
-            $supervisorIdx = array_search('pegawai penempatan', $headers);
-            $bahagianIdx = array_search('bahagian', $headers);
-            $locationIdx = array_search('lokasi terkini', $headers);
-
-            if ($bahagianIdx === false || $locationIdx === false) {
-                $errors[] = "File $filename: Missing required columns (Bahagian, Lokasi Terkini)";
-                continue;
+            // Get headers (first row) - case-insensitive match
+            $headers = $rows[0];
+            $headerMap = [];
+            foreach ($headers as $idx => $header) {
+                $headerMap[strtolower(trim($header))] = $idx;
             }
-
-            // Extract data rows (skip header)
-            for ($j = 1; $j < count($rows); $j++) {
-                $row = $rows[$j];
+            
+            // Detect format type
+            $isAssetInspectionFormat = false;
+            if (isset($headerMap['bil']) && isset($headerMap['no. siri pendaftaran']) && 
+                isset($headerMap['maklumat aset']) && isset($headerMap['lokasi semasa']) && 
+                isset($headerMap['pengguna']) && isset($headerMap['bahagian'])) {
+                $isAssetInspectionFormat = true;
+            }
+            
+            if ($isAssetInspectionFormat) {
+                // Asset Inspection Format (Multi-line)
+                // Columns: Bil, No. Siri Pendaftaran, Maklumat Aset, Lokasi Semasa, Pengguna, Bahagian
+                $registrationIdx = $headerMap['no. siri pendaftaran'];
+                $locationIdx = $headerMap['lokasi semasa'];
+                $supervisorIdx = $headerMap['pengguna'];
+                $bahagianIdx = $headerMap['bahagian'];
                 
-                // Skip rows with empty department or location
-                if (empty($row[$bahagianIdx]) || trim($row[$bahagianIdx]) === '' ||
-                    empty($row[$locationIdx]) || trim($row[$locationIdx]) === '') {
+                // Extract data rows (skip header)
+                for ($j = 1; $j < count($rows); $j++) {
+                    $row = $rows[$j];
+                    
+                    // Only process rows with registration number (main rows, not detail rows)
+                    if (!empty($row[$registrationIdx]) && trim($row[$registrationIdx]) !== '') {
+                        // Skip if department or location is empty
+                        if (empty($row[$bahagianIdx]) || trim($row[$bahagianIdx]) === '' ||
+                            empty($row[$locationIdx]) || trim($row[$locationIdx]) === '') {
+                            continue;
+                        }
+                        
+                        $allRows[] = [
+                            'supervisor' => trim($row[$supervisorIdx] ?? ''),
+                            'bahagian' => trim($row[$bahagianIdx]),
+                            'location_name' => trim($row[$locationIdx]),
+                            'source_file' => $filename
+                        ];
+                    }
+                }
+            } else {
+                // Standard Department Import Format
+                // Find column indices by matching expected column names
+                $supervisorIdx = $headerMap['pegawai penempatan'] ?? $headerMap['pegawai penyelia'] ?? false;
+                $bahagianIdx = $headerMap['bahagian'] ?? $headerMap['jabatan'] ?? false;
+                $locationIdx = $headerMap['lokasi terkini'] ?? $headerMap['lokasi'] ?? false;
+
+                if ($bahagianIdx === false || $locationIdx === false) {
+                    $errors[] = "File $filename: Missing required columns. Expected: 'Bahagian' (or 'Jabatan') and 'Lokasi Terkini' (or 'Lokasi')";
                     continue;
                 }
 
-                $allRows[] = [
-                    'supervisor' => $supervisorIdx !== false ? trim($row[$supervisorIdx] ?? '') : '',
-                    'bahagian' => trim($row[$bahagianIdx]),
-                    'location_name' => trim($row[$locationIdx]),
-                    'source_file' => $filename
-                ];
+                // Extract data rows (skip header)
+                for ($j = 1; $j < count($rows); $j++) {
+                    $row = $rows[$j];
+                    
+                    // Skip rows with empty department or location
+                    if (empty($row[$bahagianIdx]) || trim($row[$bahagianIdx]) === '' ||
+                        empty($row[$locationIdx]) || trim($row[$locationIdx]) === '') {
+                        continue;
+                    }
+
+                    $allRows[] = [
+                        'supervisor' => $supervisorIdx !== false ? trim($row[$supervisorIdx] ?? '') : '',
+                        'bahagian' => trim($row[$bahagianIdx]),
+                        'location_name' => trim($row[$locationIdx]),
+                        'source_file' => $filename
+                    ];
+                }
             }
 
         } catch (Exception $e) {
@@ -212,9 +259,22 @@ try {
             }
             
             // Update location supervisor if provided in the file
+            // Supervisor name is expected, not staff ID
             if (!empty($data['supervisor'])) {
-                $stmt = $pdo->prepare('UPDATE locations SET supervisor = ? WHERE id = ?');
-                $stmt->execute([$data['supervisor'], $locId]);
+                // Try to find user by name to get staff_id
+                $stmt = $pdo->prepare('SELECT staff_id FROM users WHERE name LIKE ? LIMIT 1');
+                $stmt->execute(['%' . trim($data['supervisor']) . '%']);
+                $user = $stmt->fetch();
+                
+                if ($user && !empty($user['staff_id'])) {
+                    // Update with staff_id if found
+                    $stmt = $pdo->prepare('UPDATE locations SET supervisor = ? WHERE id = ?');
+                    $stmt->execute([$user['staff_id'], $locId]);
+                } else {
+                    // Store the name as-is if user not found (for reference)
+                    $stmt = $pdo->prepare('UPDATE locations SET supervisor = ? WHERE id = ?');
+                    $stmt->execute([trim($data['supervisor']), $locId]);
+                }
             }
 
         } catch (Exception $e) {

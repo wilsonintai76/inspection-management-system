@@ -126,13 +126,12 @@ try {
                 // Wrap in transaction for safety
                 $pdo->beginTransaction();
                 try {
-                    // Remove existing inspection assets and batches
+                    // Remove EVERYTHING - complete database reset
                     $pdo->exec('DELETE FROM asset_inspections');
                     $pdo->exec('DELETE FROM asset_upload_batches');
-                    // Reset department cached totals if any
-                    if ($pdo->query("SHOW COLUMNS FROM departments LIKE 'total_assets'")->rowCount() > 0) {
-                        $pdo->exec('UPDATE departments SET total_assets = 0');
-                    }
+                    $pdo->exec('DELETE FROM asset_uploads');
+                    $pdo->exec('DELETE FROM locations');
+                    $pdo->exec('DELETE FROM departments');
                     $pdo->commit();
                 } catch (Throwable $e) {
                     $pdo->rollBack();

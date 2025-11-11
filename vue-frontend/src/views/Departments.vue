@@ -3,12 +3,176 @@
     <!-- Page Header -->
     <PageHeader 
       icon="🏢" 
-      title="Departments"
-      subtitle="Manage department information and asset totals"
+      :title="showBulkImportDialog ? 'Bulk Import Departments & Locations' : 'Departments'"
+      :subtitle="showBulkImportDialog ? 'Upload merged Excel or CSV file containing departments and locations' : 'Manage department information and asset totals'"
     />
 
-    <!-- Departments Card -->
-    <div class="card bg-base-100 shadow-xl">
+    <!-- Bulk Import Card (Expanded Modern UI) -->
+    <div v-if="showBulkImportDialog" class="mb-8">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-6">
+            <button @click="closeBulkImportDialog" class="btn btn-ghost gap-2">
+              ← Back to Departments
+            </button>
+          </div>
+
+          <div class="text-center mb-6">
+            <div class="text-6xl mb-4">📁</div>
+            <h3 class="text-xl font-semibold text-gray-700">File Requirements</h3>
+          </div>
+
+          <div class="alert alert-info mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="text-sm">
+              <ul class="list-disc list-inside space-y-1">
+                <li>Format: Excel (.xlsx, .xls) or CSV</li>
+                <li><strong>File size limit: Max 10MB per file, 50MB total</strong></li>
+                <li>Required columns (exact names): <strong>Label, Jenis Aset, Pegawai Penyelia, Jabatan, Lokasi</strong></li>
+                <li>Label = Asset ID (unique, e.g., KPT/PKS/I/08/406)</li>
+                <li>Jenis Aset = Asset Type</li>
+                <li>Pegawai Penyelia = Supervisor <strong>name</strong> (not Staff ID)</li>
+                <li>Jabatan = Department</li>
+                <li>Lokasi = Current Location</li>
+                <li>First row must be headers</li>
+                <li><strong>Multiple files supported:</strong> Select multiple department files and they will be merged automatically</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="alert alert-info mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <div class="font-semibold">Bulk Import - Initial Setup</div>
+              <p class="text-sm mt-1">
+                Upload CSV/Excel files to set up all departments and locations at once. After initial setup, use the "Add Department" or "Add Location" buttons for individual updates.
+              </p>
+            </div>
+          </div>
+
+          <div class="border border-base-300 rounded-lg p-4 mb-6">
+            <h3 class="font-semibold mb-3">Import Mode</h3>
+            
+            <label class="label cursor-pointer justify-start gap-3 mb-2">
+              <input 
+                type="radio" 
+                name="uploadMode"
+                :value="'normal'"
+                v-model="uploadMode"
+                class="radio radio-primary" 
+              />
+              <div>
+                <span class="label-text font-medium">📦 Initial Setup / Add New</span>
+                <p class="text-xs text-base-content/60 mt-1">
+                  Upload all departments and locations. Keeps existing data and adds new entries.
+                </p>
+              </div>
+            </label>
+
+            <label class="label cursor-pointer justify-start gap-3">
+              <input 
+                type="radio" 
+                name="uploadMode"
+                :value="'overwrite'"
+                v-model="uploadMode"
+                class="radio radio-warning" 
+              />
+              <div>
+                <span class="label-text font-medium">⚠️ Replace All (Annual Reset)</span>
+                <p class="text-xs text-base-content/60 mt-1">
+                  DELETE everything and start fresh. Use for annual data refresh only.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <div class="flex justify-center mb-4">
+            <input
+              ref="bulkFileInput"
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              multiple
+              @change="handleBulkFileSelect"
+              :disabled="uploadingBulk"
+              class="hidden"
+            />
+            <button @click="triggerBulkFileInput" class="btn btn-primary" :disabled="uploadingBulk">
+              {{ selectedBulkFiles.length > 0 ? 'Add More Files' : 'Select Files' }}
+            </button>
+          </div>
+
+          <div v-if="selectedBulkFiles.length > 0" class="mb-4 space-y-2">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="font-semibold text-gray-700">Selected Files ({{ selectedBulkFiles.length }})</h4>
+              <button @click="clearBulkFiles" class="btn btn-ghost btn-sm text-error" :disabled="uploadingBulk">
+                Clear All
+              </button>
+            </div>
+            <div v-for="(file, index) in selectedBulkFiles" :key="index" class="alert alert-success py-2">
+              <div class="flex-1 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">📄</span>
+                  <div>
+                    <span class="font-semibold">{{ file.name }}</span>
+                    <span class="ml-2 text-sm opacity-70">({{ formatFileSize(file.size) }})</span>
+                  </div>
+                </div>
+                <button @click="removeBulkFile(index)" class="btn btn-ghost btn-xs text-error" :disabled="uploadingBulk">
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div class="alert alert-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span class="text-sm font-medium">All files will be merged and imported together</span>
+            </div>
+          </div>
+
+          <button
+            @click="uploadBulkFiles"
+            class="btn btn-success w-full mb-4"
+            :disabled="selectedBulkFiles.length === 0 || uploadingBulk"
+          >
+            <span v-if="uploadingBulk" class="loading loading-spinner"></span>
+            {{ uploadingBulk ? 'Uploading...' : `Upload ${selectedBulkFiles.length} File${selectedBulkFiles.length > 1 ? 's' : ''}` }}
+          </button>
+
+          <div v-if="bulkUploadResult" class="mt-6">
+            <div v-if="bulkUploadResult.success" class="alert alert-success">
+              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <div class="font-semibold">Import successful!</div>
+                <div class="text-sm mt-1">
+                  <div>Departments created: {{ bulkUploadResult.departments_created }}</div>
+                  <div>Locations created: {{ bulkUploadResult.locations_created }}</div>
+                  <div>Total rows processed: {{ bulkUploadResult.total_rows }}</div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="alert alert-error">
+              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{{ bulkUploadResult.error }}</span>
+            </div>
+            <div v-if="bulkUploadResult.success" class="text-center mt-4">
+              <button @click="closeBulkImportDialog" class="btn btn-primary">View Departments</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Departments Card (hidden when bulk import is open) -->
+    <div v-else class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <div class="flex justify-between items-center mb-4">
           <h2 class="card-title text-xl">Manage Departments</h2>
@@ -246,103 +410,6 @@
         <button @click="closeSummaryDialog" class="btn btn-ghost">Close</button>
       </template>
     </Modal>
-
-    <!-- Bulk Import Modal -->
-    <Modal 
-      v-model="showBulkImportDialog"
-      title="Bulk Import Assets for Inspection"
-      size="lg"
-    >
-      <div class="space-y-4">
-        <div class="alert alert-info">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <div class="text-sm">
-            <p class="font-semibold mb-2">Setup Departments & Locations:</p>
-            <ul class="list-disc list-inside space-y-1">
-              <li>Format: Excel (.xlsx, .xls) or CSV</li>
-              <li><strong>File size limit: Max 10MB per file, 50MB total</strong></li>
-              <li><strong>Required columns:</strong> Bahagian, Lokasi Terkini</li>
-              <li><strong>Optional column:</strong> Pegawai Penempatan (Supervisor - will be stored in Locations)</li>
-              <li>Bahagian = Department Name</li>
-              <li>Lokasi Terkini = Location Name</li>
-              <li>First row must be headers</li>
-              <li><strong>Multiple files supported:</strong> All files will be merged</li>
-              <li><strong>Creates:</strong> Departments → Locations (with optional supervisor)</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="form-control mb-4">
-          <label class="label cursor-pointer justify-start gap-3">
-            <input 
-              type="checkbox" 
-              v-model="overwriteMode"
-              class="checkbox checkbox-warning" 
-            />
-            <div>
-              <span class="label-text font-medium">⚠️ Overwrite Mode</span>
-              <p class="text-xs text-base-content/60 mt-1">
-                Clear ALL existing departments, locations, and asset inspection data before importing
-              </p>
-            </div>
-          </label>
-        </div>
-
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-medium">Select Files</span>
-          </label>
-          <input
-            ref="bulkFileInput"
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            multiple
-            @change="handleBulkFileSelect"
-            class="file-input file-input-bordered w-full"
-          />
-        </div>
-
-        <div v-if="selectedBulkFiles.length > 0" class="space-y-2">
-          <div class="flex justify-between items-center">
-            <h4 class="font-semibold">Selected Files ({{ selectedBulkFiles.length }})</h4>
-            <button @click="clearBulkFiles" class="btn btn-ghost btn-sm text-error">
-              Clear All
-            </button>
-          </div>
-          <div v-for="(file, index) in selectedBulkFiles" :key="index" class="alert alert-success py-2">
-            <div class="flex-1 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span>📄</span>
-                <span class="font-semibold">{{ file.name }}</span>
-                <span class="text-sm opacity-70">({{ formatFileSize(file.size) }})</span>
-              </div>
-              <button @click="removeBulkFile(index)" class="btn btn-ghost btn-xs text-error">
-                ✕
-              </button>
-            </div>
-          </div>
-          <div class="alert alert-info">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <span class="text-sm font-medium">All files will be merged and imported together</span>
-          </div>
-        </div>
-      </div>
-      <template #actions>
-        <button @click="closeBulkImportDialog" class="btn btn-ghost">Cancel</button>
-        <button 
-          @click="uploadBulkFiles" 
-          class="btn btn-primary"
-          :disabled="selectedBulkFiles.length === 0 || uploadingBulk"
-        >
-          <span v-if="uploadingBulk" class="loading loading-spinner"></span>
-          {{ uploadingBulk ? 'Uploading...' : `Import ${selectedBulkFiles.length} File${selectedBulkFiles.length > 1 ? 's' : ''}` }}
-        </button>
-      </template>
-    </Modal>
   </div>
 </template>
 
@@ -395,7 +462,8 @@ const showBulkImportDialog = ref(false);
 const selectedBulkFiles = ref<File[]>([]);
 const uploadingBulk = ref(false);
 const bulkFileInput = ref<HTMLInputElement | null>(null);
-const overwriteMode = ref(false);
+const uploadMode = ref<'normal' | 'overwrite'>('normal');
+const bulkUploadResult = ref<any>(null);
 
 const formData = ref<FormData>({
   name: '',
@@ -620,12 +688,18 @@ function getFileUrl(filepath: string): string {
 // Bulk Import Functions
 function openBulkImportDialog() {
   showBulkImportDialog.value = true;
+  bulkUploadResult.value = null;
 }
 
 function closeBulkImportDialog() {
   showBulkImportDialog.value = false;
   selectedBulkFiles.value = [];
-  overwriteMode.value = false;
+  uploadMode.value = 'normal';
+  bulkUploadResult.value = null;
+}
+
+function triggerBulkFileInput() {
+  bulkFileInput.value?.click();
 }
 
 function handleBulkFileSelect(event: Event) {
@@ -653,14 +727,25 @@ function clearBulkFiles() {
 async function uploadBulkFiles() {
   if (selectedBulkFiles.value.length === 0) return;
 
-  // Confirm overwrite if enabled
-  if (overwriteMode.value) {
-    const confirmMsg = '⚠️ OVERWRITE MODE ENABLED\n\n' +
+  // Confirm based on upload mode
+  if (uploadMode.value === 'overwrite') {
+    const confirmMsg = '⚠️ REPLACE ALL DATA - ANNUAL RESET\n\n' +
       'This will DELETE ALL:\n' +
       '• Departments\n' +
       '• Locations\n' +
       '• Asset Inspection Data\n\n' +
       'Are you sure you want to continue?';
+    
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+  } else {
+    // Confirm initial setup mode
+    const confirmMsg = '📦 BULK IMPORT - INITIAL SETUP\n\n' +
+      'This will import departments and locations from your file.\n' +
+      'Existing data will be preserved.\n\n' +
+      'For individual updates, use the "Add Department" or "Edit" buttons instead.\n\n' +
+      'Continue with bulk import?';
     
     if (!confirm(confirmMsg)) {
       return;
@@ -681,9 +766,11 @@ async function uploadBulkFiles() {
     formData.append('uploaded_by', userId.value || 'admin');
     formData.append('notes', `Bulk import from ${selectedBulkFiles.value.length} file(s)`);
     
-    // Add overwrite flag
-    if (overwriteMode.value) {
+    // Add mode flags
+    if (uploadMode.value === 'overwrite') {
       formData.append('overwrite', 'true');
+    } else {
+      formData.append('append', 'true');
     }
 
     const response = await api.post('/department-bulk-import.php', formData, {
@@ -695,8 +782,10 @@ async function uploadBulkFiles() {
     if (response.data.success) {
       const { assets_created, locations_created, departments_created, errors } = response.data;
       let message = `Import completed!\n\n`;
-      if (overwriteMode.value) {
+      if (uploadMode.value === 'overwrite') {
         message += `✓ Previous data cleared\n`;
+      } else {
+        message += `✓ New data added\n`;
       }
       message += `✓ Departments Created: ${departments_created}\n`;
       message += `✓ Locations Created: ${locations_created}\n`;
@@ -712,14 +801,26 @@ async function uploadBulkFiles() {
           message += `  ... and ${errors.length - 5} more`;
         }
       }
-      alert(message);
-      closeBulkImportDialog();
+      
+      // Set result for display
+      bulkUploadResult.value = {
+        success: true,
+        departments_created,
+        locations_created,
+        total_rows: response.data.total_rows || 0,
+        errors: errors || []
+      };
+      
+      // Refresh departments list
       await fetchDepartments();
     }
   } catch (err: any) {
     console.error('Bulk import error:', err);
     const errorMsg = err.response?.data?.error || 'Failed to import department data';
-    alert(`Error: ${errorMsg}`);
+    bulkUploadResult.value = {
+      success: false,
+      error: errorMsg
+    };
   } finally {
     uploadingBulk.value = false;
   }

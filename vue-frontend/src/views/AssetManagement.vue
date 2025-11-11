@@ -1,9 +1,158 @@
 <template>
   <div class="asset-management-page">
+    <!-- Upload Assets Full Page Interface (Modern UI) -->
+    <div v-if="showUploadDialog" class="upload-interface-wrapper">
+      <div class="page-header">
+        <h1>� Upload Asset Inspection Data</h1>
+        <button @click="closeUploadDialog" class="btn-back">
+          ← Back to Departments
+        </button>
+      </div>
+
+      <div class="modern-upload-card">
+        <div class="text-center mb-6">
+          <div class="file-icon-large">📁</div>
+          <h3 class="requirements-title">File Requirements</h3>
+        </div>
+
+        <div class="info-alert">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="alert-icon">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <div class="info-content">
+            <ul class="requirements-list">
+              <li>Format: Excel (.xlsx, .xls) or CSV</li>
+              <li><strong>File size limit: Max 10MB per file, 50MB total</strong></li>
+              <li>Required columns (exact names): <strong>Label, Jenis Aset, Pegawai Penyelia, Jabatan, Lokasi</strong></li>
+              <li>Label = Asset ID (unique, e.g., KPT/PKS/I/08/406)</li>
+              <li>Jenis Aset = Asset Type</li>
+              <li>Pegawai Penyelia = Supervisor <strong>name</strong> (not Staff ID)</li>
+              <li>Jabatan = Department</li>
+              <li>Lokasi = Current Location</li>
+              <li>First row must be headers</li>
+              <li><strong>Multiple files supported:</strong> Select multiple files and they will be merged automatically</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="overwrite-section">
+          <label class="overwrite-checkbox">
+            <input 
+              type="checkbox" 
+              v-model="overwriteMode"
+              class="checkbox-input"
+            />
+            <div class="overwrite-label">
+              <span class="overwrite-title">⚠️ Replace All Data</span>
+              <p class="overwrite-description">
+                Remove EVERYTHING: All departments, locations, asset inspections, and upload history. Complete database reset.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div class="upload-controls">
+          <input 
+            type="file" 
+            ref="fileInput" 
+            accept=".csv,.xlsx,.xls"
+            multiple
+            @change="handleFileSelect" 
+            class="file-input-hidden"
+          />
+          <button @click="fileInput?.click()" class="btn-select-modern" :disabled="uploading">
+            {{ selectedFiles.length > 0 ? 'Add More Files' : 'Select Files' }}
+          </button>
+        </div>
+
+        <div v-if="selectedFiles.length > 0" class="selected-files-section">
+          <div class="files-header">
+            <h4 class="files-count">Selected Files ({{ selectedFiles.length }})</h4>
+            <button @click="clearFiles" class="btn-clear-files" :disabled="uploading">
+              Clear All
+            </button>
+          </div>
+          <div v-for="(file, index) in selectedFiles" :key="index" class="file-card">
+            <div class="file-info-row">
+              <div class="file-details">
+                <span class="file-emoji">📄</span>
+                <div>
+                  <span class="file-name">{{ file.name }}</span>
+                  <span class="file-size">({{ formatFileSize(file.size) }})</span>
+                </div>
+              </div>
+              <button @click="removeFile(index)" class="btn-remove-file" :disabled="uploading">
+                ✕
+              </button>
+            </div>
+          </div>
+          <div class="merge-notice">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="notice-icon">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>All files will be merged into a single batch upload</span>
+          </div>
+        </div>
+
+        <div class="notes-section">
+          <label class="notes-label">Notes (optional)</label>
+          <textarea 
+            v-model="uploadNotes" 
+            rows="3" 
+            placeholder="Add any notes about this upload..."
+            :disabled="uploading"
+            class="notes-textarea"
+          ></textarea>
+        </div>
+
+        <button 
+          @click="uploadAssets" 
+          class="btn-upload-modern"
+          :disabled="selectedFiles.length === 0 || uploading"
+        >
+          <span v-if="uploading" class="loading-spinner"></span>
+          {{ uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}` }}
+        </button>
+
+        <div v-if="uploadResult" class="upload-result">
+          <div v-if="uploadResult.success" class="result-success">
+            <svg xmlns="http://www.w3.org/2000/svg" class="result-icon" fill="none" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <div class="result-title">{{ uploadResult.message }}</div>
+              <div class="result-details">
+                <div v-if="uploadResult.files_processed > 1">Files processed: {{ uploadResult.files_processed }}</div>
+                <div>Total records uploaded: {{ uploadResult.total_records }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="result-error">
+            <svg xmlns="http://www.w3.org/2000/svg" class="result-icon" fill="none" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{{ uploadResult.message }}</span>
+          </div>
+          <div v-if="uploadResult.success" class="result-actions">
+            <button @click="closeUploadDialog" class="btn-view-summary">View Departments</button>
+          </div>
+        </div>
+
+        <div v-if="uploadError" class="upload-error">
+          <svg xmlns="http://www.w3.org/2000/svg" class="error-icon" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{{ uploadError }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Original Departments View (hidden when upload dialog is open) -->
+    <div v-else>
     <!-- Page Header -->
     <div class="page-header">
   <h1>🗂️ Departments</h1>
-      <button v-if="canManageDepartments" @click="showUploadDialog = true" class="btn-upload">
+      <button v-if="canManageDepartments" @click="openUploadDialog" class="btn-upload">
         📤 Upload Assets
       </button>
     </div>
@@ -101,60 +250,6 @@
         </table>
       </div>
     </div>
-
-    <!-- Upload Dialog -->
-    <div v-if="showUploadDialog" class="dialog-overlay" @click.self="showUploadDialog = false">
-      <div class="dialog">
-        <div class="dialog-header">
-          <h3>Upload Assets</h3>
-          <button @click="showUploadDialog = false" class="btn-close">&times;</button>
-        </div>
-        <div class="dialog-body">
-          <div class="info-box">
-            <p><strong>CSV Format Requirements:</strong></p>
-            <ul>
-              <li>Columns: Label, Jenis Aset, Pegawai Penyelia, Jabatan, Lokasi</li>
-              <li>Department and Location must match existing records</li>
-              <li>Supervisor must be a valid staff ID</li>
-            </ul>
-          </div>
-
-          <div class="upload-area">
-            <input 
-              type="file" 
-              ref="fileInput" 
-              accept=".csv" 
-              @change="handleFileSelect" 
-              style="display: none"
-            />
-            <button @click="fileInput?.click()" class="btn-select-file">
-              📁 Select CSV File
-            </button>
-            <div v-if="selectedFile" class="file-info">
-              Selected: {{ selectedFile.name }}
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Notes (Optional)</label>
-            <textarea 
-              v-model="uploadNotes" 
-              rows="3" 
-              placeholder="Add any notes about this upload..."
-            ></textarea>
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button @click="showUploadDialog = false" class="btn-cancel">Cancel</button>
-          <button 
-            @click="uploadAssets" 
-            :disabled="!selectedFile || uploading" 
-            class="btn-save"
-          >
-            {{ uploading ? 'Uploading...' : 'Upload' }}
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Add/Edit Department Dialog -->
@@ -218,7 +313,11 @@ const canManageDepartments = computed(() => hasPermission(userRoles.value, 'canM
 const uploading = ref(false);
 const showUploadDialog = ref(false);
 const selectedFile = ref<File | null>(null);
+const selectedFiles = ref<File[]>([]);
 const uploadNotes = ref('');
+const uploadResult = ref<any>(null);
+const uploadError = ref('');
+const overwriteMode = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const summary = ref<any[]>([]); // asset summary by department
@@ -276,33 +375,122 @@ const totalLocations = computed(() => {
   return locations.value.filter((l: any) => deptIds.has(l.department_id)).length;
 });
 
+// Upload Dialog Functions
+function openUploadDialog() {
+  showUploadDialog.value = true;
+  uploadResult.value = null;
+  uploadError.value = '';
+}
+
+function closeUploadDialog() {
+  showUploadDialog.value = false;
+  selectedFiles.value = [];
+  selectedFile.value = null;
+  uploadNotes.value = '';
+  uploadResult.value = null;
+  uploadError.value = '';
+  overwriteMode.value = false;
+}
+
 function handleFileSelect(event: Event) {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files.length > 0) {
+    // Add new files to existing selection (multiple file support)
+    const newFiles = Array.from(target.files);
+    selectedFiles.value = [...selectedFiles.value, ...newFiles];
+    // Also set selectedFile for backward compatibility
     selectedFile.value = target.files[0];
+    // Reset input
+    target.value = '';
   }
 }
 
+function removeFile(index: number) {
+  selectedFiles.value.splice(index, 1);
+  if (selectedFiles.value.length === 0) {
+    selectedFile.value = null;
+  }
+}
+
+function clearFiles() {
+  selectedFiles.value = [];
+  selectedFile.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
 async function uploadAssets() {
-  if (!selectedFile.value) return;
+  if (selectedFiles.value.length === 0) return;
+  
+  // Confirm overwrite if enabled
+  if (overwriteMode.value) {
+    const confirmMsg = '⚠️ REPLACE ALL DATA - COMPLETE RESET\n\n' +
+      'This will DELETE EVERYTHING:\n' +
+      '• All Departments\n' +
+      '• All Locations\n' +
+      '• All Asset Inspection Data\n' +
+      '• All Upload History\n\n' +
+      'The entire database will be cleared and replaced with your new files.\n\n' +
+      'Are you sure you want to continue?';
+    
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+  }
   
   uploading.value = true;
+  uploadError.value = '';
+  uploadResult.value = null;
+  
   const formData = new FormData();
-  formData.append('file', selectedFile.value);
-  formData.append('notes', uploadNotes.value);
+  
+  // Append all files
+  selectedFiles.value.forEach((file) => {
+    formData.append('files[]', file);
+  });
+  
+  formData.append('notes', uploadNotes.value || `Batch upload of ${selectedFiles.value.length} file(s)`);
+  formData.append('user_id', sessionStorage.getItem('userId') || '');
+  
+  // Add overwrite flag if enabled
+  if (overwriteMode.value) {
+    formData.append('overwrite', 'true');
+  }
   
   try {
-    await api.post('/asset-uploads.php', formData, {
+    const response = await api.post('/asset-uploads.php', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     
-    alert('Assets uploaded successfully!');
-    showUploadDialog.value = false;
+    uploadResult.value = {
+      success: true,
+      message: overwriteMode.value ? 'All previous data cleared and new data uploaded successfully!' : 'Upload successful!',
+      files_processed: selectedFiles.value.length,
+      total_records: response.data.assets_created || 0
+    };
+    
+    // Clear form
+    selectedFiles.value = [];
     selectedFile.value = null;
     uploadNotes.value = '';
+    overwriteMode.value = false;
+    
+    // Refresh data
     loadSummary();
   } catch (err: any) {
-    alert('Upload failed: ' + (err.response?.data?.message || err.message));
+    uploadResult.value = {
+      success: false,
+      message: err.response?.data?.error || err.message || 'Upload failed'
+    };
   } finally {
     uploading.value = false;
   }
@@ -847,5 +1035,386 @@ async function deleteDepartment() {
 .btn-save:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Modern Upload Interface Styles */
+.upload-interface-wrapper {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.modern-upload-card {
+  background: white;
+  padding: 3rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.file-icon-large {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.requirements-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 2rem;
+}
+
+.info-alert {
+  background: #dbeafe;
+  border-left: 4px solid #3b82f6;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.alert-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  stroke: #3b82f6;
+}
+
+.info-content {
+  flex: 1;
+}
+
+.requirements-list {
+  list-style: disc;
+  padding-left: 1.5rem;
+  line-height: 1.8;
+}
+
+.requirements-list li {
+  margin-bottom: 0.5rem;
+}
+
+.overwrite-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #fef3c7;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+}
+
+.overwrite-checkbox {
+  display: flex;
+  align-items: start;
+  gap: 1rem;
+  cursor: pointer;
+}
+
+.checkbox-input {
+  margin-top: 0.25rem;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #f59e0b;
+}
+
+.overwrite-label {
+  flex: 1;
+}
+
+.overwrite-title {
+  font-weight: 600;
+  color: #92400e;
+  font-size: 1rem;
+}
+
+.overwrite-description {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #78350f;
+  line-height: 1.5;
+}
+
+.upload-controls {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.btn-select-modern {
+  padding: 1rem 2rem;
+  background: #0d9488;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-select-modern:hover:not(:disabled) {
+  background: #0f766e;
+}
+
+.btn-select-modern:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selected-files-section {
+  margin-bottom: 2rem;
+}
+
+.files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.files-count {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.btn-clear-files {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: #ef4444;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-clear-files:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.file-card {
+  background: #d1fae5;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.file-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.file-details {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.file-emoji {
+  font-size: 1.5rem;
+}
+
+.file-name {
+  font-weight: 600;
+  color: #065f46;
+}
+
+.file-size {
+  color: #059669;
+  font-size: 0.875rem;
+}
+
+.btn-remove-file {
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  color: #ef4444;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.btn-remove-file:hover:not(:disabled) {
+  color: #dc2626;
+}
+
+.merge-notice {
+  background: #dbeafe;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.notice-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  stroke: #3b82f6;
+}
+
+.notes-section {
+  margin-bottom: 2rem;
+}
+
+.notes-label {
+  display: block;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.notes-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.notes-textarea:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
+}
+
+.btn-upload-modern {
+  width: 100%;
+  padding: 1rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-upload-modern:hover:not(:disabled) {
+  background: #059669;
+}
+
+.btn-upload-modern:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.upload-result {
+  margin-top: 2rem;
+}
+
+.result-success {
+  background: #d1fae5;
+  border-left: 4px solid #10b981;
+  padding: 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+}
+
+.result-error {
+  background: #fee2e2;
+  border-left: 4px solid #ef4444;
+  padding: 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.result-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+
+.result-title {
+  font-weight: 600;
+  font-size: 1.125rem;
+  margin-bottom: 0.5rem;
+}
+
+.result-details {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.result-actions {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.btn-view-summary {
+  padding: 0.75rem 2rem;
+  background: #0d9488;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-view-summary:hover {
+  background: #0f766e;
+}
+
+.upload-error {
+  background: #fee2e2;
+  border-left: 4px solid #ef4444;
+  padding: 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 2rem;
+}
+
+.error-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  stroke: #ef4444;
+}
+
+.btn-back {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: #0d9488;
+  border: 1px solid #0d9488;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: #0d9488;
+  color: white;
 }
 </style>

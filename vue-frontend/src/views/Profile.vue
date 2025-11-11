@@ -189,7 +189,7 @@
             </div>
             <div>
               <label class="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-2">Status</label>
-              <Badge variant="success" :label="profileData.status || 'Verified'" />
+              <Badge :variant="statusVariant" :label="statusLabel" />
             </div>
             <div>
               <label class="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-2">Account Created</label>
@@ -207,7 +207,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../api';
 import { PageHeader, LoadingSpinner, Badge } from '../components';
@@ -258,6 +258,36 @@ const passwordData = ref<PasswordData>({
 
 const departments = ref<Department[]>([]);
 const loading = ref(false);
+
+// Dynamic status label & variant mapping
+const statusLabel = ref('');
+const statusVariant = ref<'success' | 'warning' | 'error' | 'info' | 'ghost'>('ghost');
+
+function computeStatusDisplay(raw?: string) {
+  const value = (raw || '').trim() || 'Verified';
+  statusLabel.value = value;
+  switch (value.toLowerCase()) {
+    case 'verified':
+    case 'active':
+      statusVariant.value = 'success';
+      break;
+    case 'pending':
+    case 'awaiting':
+      statusVariant.value = 'warning';
+      break;
+    case 'disabled':
+    case 'locked':
+    case 'suspended':
+      statusVariant.value = 'error';
+      break;
+    case 'invited':
+    case 'new':
+      statusVariant.value = 'info';
+      break;
+    default:
+      statusVariant.value = 'ghost';
+  }
+}
 const saving = ref(false);
 const changingPassword = ref(false);
 const router = useRouter();
@@ -312,6 +342,8 @@ async function fetchProfile() {
 
     const response = await api.get(`/users.php?id=${userId}`);
     profileData.value = response.data;
+    // Update dynamic status badge immediately after data load
+    computeStatusDisplay(profileData.value.status);
   } catch (err) {
     console.error('Error fetching profile:', err);
     alert('Failed to load profile.');
@@ -346,7 +378,7 @@ async function updateProfile() {
     sessionStorage.setItem('userName', profileData.value.name);
 
     alert('Profile updated successfully!');
-    await fetchProfile();
+    await fetchProfile(); // fetchProfile will recompute status badge
   } catch (err) {
     console.error('Error updating profile:', err);
     alert('Failed to update profile. Please try again.');
@@ -394,5 +426,12 @@ async function changePassword() {
 
 onMounted(async () => {
   await Promise.all([fetchProfile(), fetchDepartments()]);
+  // In case status was pre-populated or missing, ensure badge reflects current value
+  computeStatusDisplay(profileData.value.status);
+});
+
+// Reactively recompute badge if status is changed locally
+watch(() => profileData.value.status, (newVal) => {
+  computeStatusDisplay(newVal);
 });
 </script>
